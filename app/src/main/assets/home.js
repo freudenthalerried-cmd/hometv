@@ -200,7 +200,7 @@ function ytFeed(name, id) {
     return [].slice.call(doc.getElementsByTagNameNS('*', 'entry')).map(function (e) {
       var vid = tag(e, 'videoId');
       if (!/^[\w-]{11}$/.test(vid)) return null;
-      return {id:'yt:' + vid, src:'yt', channel:name.split(' –')[0], title:tag(e, 'title'), desc:tag(e, 'description'),
+      return {id:'yt:' + vid, src:'yt', chId:id, channel:name.split(' –')[0], title:tag(e, 'title'), desc:tag(e, 'description'),
         date:Date.parse(tag(e, 'published')) / 1000 || 0, length_sec:0, keywords:'', views:0, rate:0,
         embed:'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&modestbranding=1',
         default_thumb:{src:'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg'}, thumbs:[]};

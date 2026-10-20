@@ -50,3 +50,8 @@ schaltet frei, beim Zurück zu Home wird wieder gesperrt. Die öffentliche Suche
   offizielle YouTube-Kanäle (Liste in content.json → "youtube": [Name, Kanal-ID]).
 - **Netzkino** in „Filme“: ganze Kinofilme gratis und legal (offizieller YouTube-Kanal).
 - **Deine Apps** am Startbild: Netflix, Prime Video, Disney+, Joyn … direkt starten.
+
+## Bewerten & Ähnliche
+☰ (Menü-Taste) auf einem Video: Abspielen · 👍 Gefällt mir · 🔎 Ähnliche · ♥ Merken · ★1–★5.
+Nach ≥ 2 Minuten Schauen fragt die App nach Sternen. Bewertungen/Likes steuern „Für dich“ und die Reihenfolge
+(Privat: nach Tags, Filme: nach Sendung/Thema und Sender – getrennte Profile).
