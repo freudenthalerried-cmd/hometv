@@ -22,6 +22,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.FrameLayout;
 
@@ -71,28 +72,63 @@ public class MainActivity extends Activity {
     private String directHtml = null; // set while a broadcaster film plays in our own <video> page
     private boolean lenient = false;  // second attempt with the normal instead of the strict ad blocker
     private String lastInfo = "\"\""; // JSON string "state|url" from the player page
-    // 15 s after start: if nothing plays, retry once with the lenient blocker, then tell the user
-    private final Runnable watchdog = new Runnable() {
+    // Player progress: every second the page reports its state; the status line shows it until the video runs.
+    // No picture after 15 s (20 s for direct films): one retry with the lenient blocker, then a clear error.
+    private TextView status;
+    private int tick = 0;
+    private boolean reported = false;
+    private final Runnable ticker = new Runnable() {
         @Override public void run() {
-            if (!playerVisible()) return;
-            player.evaluateJavascript("(function(){var v=document.querySelector('video');"
-                    + "return ((v&&v.currentTime>0)||window.__ak_state==='playing'?'ok':String(window.__ak_state||'none'))"
-                    + "+'|'+String(window.__ak_url||'')})()", r -> {
-                lastInfo = r == null ? "\"\"" : r;
-                if (r != null && r.startsWith("\"ok")) { reportResult(true); return; }
-                if (directHtml == null && strict && !lenient) {
-                    lenient = true;
-                    Toast.makeText(MainActivity.this, "Zweiter Versuch ohne strengen Werbeblocker …", Toast.LENGTH_LONG).show();
-                    player.loadUrl(playingUrl);
-                    handler.postDelayed(watchdog, 15000);
-                } else {
-                    Toast.makeText(MainActivity.this, "Video nicht verfügbar – wird künftig ausgeblendet", Toast.LENGTH_LONG).show();
-                    reportResult(false);
-                    closePlayer();
+            if (!playerVisible() || reported) return;
+            tick++;
+            player.evaluateJavascript("window.__ak_info?window.__ak_info():null", r -> {
+                if (!playerVisible() || reported) return;
+                JSONObject o = null;
+                try { if (r != null && r.startsWith("{")) o = new JSONObject(r); } catch (Exception ignored) { }
+                String st = o == null ? "" : o.optString("s");
+                lastInfo = JSONObject.quote(st + "|" + (o == null ? "" : o.optString("url")));
+                if (o != null && (o.optDouble("cur", 0) > 0 || "playing".equals(st))) {
+                    reported = true; hideStatus(); reportResult(true);
+                    return;
                 }
+                if ("error".equals(st)) { fail("Video nicht verfügbar"); return; }
+                int limit = directHtml != null ? 20 : 15;
+                if (tick >= limit) {
+                    if (directHtml == null && strict && !lenient) {
+                        lenient = true; tick = 0;
+                        showStatus("Zweiter Versuch ohne strengen Werbeblocker …");
+                        player.loadUrl(playingUrl);
+                    } else { fail("Video startet nicht"); return; }
+                } else if (o == null || "novideo".equals(st) || st.isEmpty()) {
+                    showStatus((o == null ? "Verbinde mit Quelle …  " : "Suche Video …  ") + tick + " s");
+                } else {
+                    int buf = o.optInt("buf", 0);
+                    showStatus("Video gefunden – lädt …  " + (buf > 0 ? buf + " %  ·  " : "") + tick + " s");
+                }
+                handler.postDelayed(ticker, 1000);
             });
         }
     };
+
+    private void showStatus(String t) { status.setText("⏳  " + t); status.setVisibility(View.VISIBLE); }
+    private void hideStatus() { if (status != null) status.setVisibility(View.GONE); }
+
+    /** Shows the reason at once, hides the video from now on and closes the player after 3 s. */
+    private void fail(String why) {
+        if (reported) return;
+        reported = true;
+        status.setText("✖  " + why + " – wird künftig ausgeblendet. Schließe …");
+        status.setVisibility(View.VISIBLE);
+        reportResult(false);
+        handler.postDelayed(() -> { if (playerVisible()) closePlayer(); }, 3000);
+    }
+
+    private void startProgress(String first) {
+        tick = 0; reported = false;
+        showStatus(first);
+        handler.removeCallbacks(ticker);
+        handler.postDelayed(ticker, 1000);
+    }
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable sleepRun = this::finish;
     private volatile boolean strict = true;
@@ -155,9 +191,31 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView v, String url) {
                 v.evaluateJavascript("window.__start=" + playStart + ";" + asset("inject.js"), null);
             }
+
+            // errors of the page itself are shown at once instead of a black screen
+            @Override
+            public void onReceivedError(WebView v, WebResourceRequest r, android.webkit.WebResourceError e) {
+                String d = String.valueOf(e.getDescription());
+                if (d.contains("ABORTED")) return; // our own reload / closing, not a real error
+                if (r.isForMainFrame() && playerVisible()) fail("Keine Verbindung zur Quelle (" + d + ")");
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView v, WebResourceRequest r, WebResourceResponse res) {
+                if (r.isForMainFrame() && playerVisible() && res.getStatusCode() >= 400)
+                    fail("Quelle meldet Fehler " + res.getStatusCode());
+            }
         });
         player.setVisibility(View.GONE);
         root.addView(player, new FrameLayout.LayoutParams(-1, -1));
+        status = new TextView(this);
+        status.setTextColor(Color.WHITE);
+        status.setTextSize(22);
+        status.setGravity(android.view.Gravity.CENTER);
+        status.setBackgroundColor(0xCC000000);
+        status.setPadding(48, 28, 48, 28);
+        status.setVisibility(View.GONE);
+        root.addView(status, new FrameLayout.LayoutParams(-2, -2, android.view.Gravity.CENTER));
         return player;
     }
 
@@ -208,8 +266,7 @@ public class MainActivity extends Activity {
         p.loadUrl(url);
         p.setVisibility(View.VISIBLE);
         p.requestFocus();
-        handler.removeCallbacks(watchdog);
-        handler.postDelayed(watchdog, 15000);
+        startProgress("Verbinde mit Quelle …");
     }
 
     /** Plays direct video URLs (Mediathek films) in a minimal page: tries each URL in turn, HLS via hls.js. */
@@ -233,8 +290,7 @@ public class MainActivity extends Activity {
         p.loadDataWithBaseURL("https://abendkino.app/", directHtml, "text/html", "UTF-8", null);
         p.setVisibility(View.VISIBLE);
         p.requestFocus();
-        handler.removeCallbacks(watchdog);
-        handler.postDelayed(watchdog, 20000);
+        startProgress("Film wird geladen …");
     }
 
     /** Tells the UI whether the current video really played, so broken ones get hidden. */
@@ -260,7 +316,8 @@ public class MainActivity extends Activity {
     }
 
     private void closePlayer() {
-        handler.removeCallbacks(watchdog);
+        handler.removeCallbacks(ticker);
+        hideStatus();
         directHtml = null;
         player.evaluateJavascript("window.__pos?window.__pos():0", v -> {
             int sec = 0;

@@ -78,5 +78,14 @@
       case 'fback': e.currentTime = Math.max(0, e.currentTime - 120); show('«« ' + fmt(e.currentTime) + ' / ' + fmt(d)); break;
     }
   };
+  // progress for the native status line: novideo -> found (buffering) -> playing / error
+  var watched = null;
+  window.__ak_info = function () {
+    var e = v(), b = 0;
+    if (e && e !== watched) { watched = e; e.addEventListener('error', function () { if (!started) window.__ak_state = 'error'; }); }
+    try { if (e && e.buffered.length && e.duration) b = Math.round(e.buffered.end(e.buffered.length - 1) / e.duration * 100); } catch (x) { }
+    return {s:window.__ak_state === 'playing' || window.__ak_state === 'error' ? window.__ak_state : (e ? 'found' : 'novideo'),
+      cur:e ? e.currentTime : 0, buf:b, url:window.__ak_url || ''};
+  };
   window.__pos = function () { var e = v(); return e ? Math.round(e.currentTime) : 0; };
 })();
