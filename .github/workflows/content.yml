@@ -1,0 +1,31 @@
+name: Fire TV Inhalte
+# Publishes content.json (texts, categories, film rows - data only) without rebuilding the APK.
+on:
+  push:
+    paths: ['content.json', '.github/workflows/content.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check and stamp version
+        run: |
+          python3 - <<'PY'
+          import json, os
+          c = json.load(open('content.json'))
+          assert isinstance(c.get('games'), dict) and isinstance(c.get('categories'), list) and isinstance(c.get('filme'), list)
+          c['version'] = int(os.environ['N'])
+          json.dump(c, open('content.json', 'w'), ensure_ascii=False)
+          print('content version', c['version'])
+          PY
+        env:
+          N: ${{ github.run_number }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: firetv
+          name: AbendKino (Fire TV)
+          make_latest: false
+          files: content.json

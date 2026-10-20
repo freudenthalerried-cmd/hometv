@@ -1,0 +1,41 @@
+plugins { id 'com.android.application' }
+
+def runNo = Integer.parseInt(System.getenv('GITHUB_RUN_NUMBER') ?: '1')
+
+android {
+    namespace 'at.sf.abendkino'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'at.sf.abendkino'
+        minSdk 22
+        targetSdk 34
+        versionCode runNo
+        versionName "1.0.$runNo"
+    }
+    signingConfigs {
+        release {
+            storeFile file('abendkino.jks')
+            storePassword 'abendkino'
+            keyAlias 'abendkino'
+            keyPassword 'abendkino'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    lint { checkReleaseBuilds false; abortOnError false }
+}
+
+dependencies {
+    // RTSP live view for the Tapo cameras
+    implementation 'androidx.media3:media3-exoplayer:1.4.1'
+    implementation 'androidx.media3:media3-exoplayer-rtsp:1.4.1'
+    implementation 'androidx.media3:media3-ui:1.4.1'
+}
