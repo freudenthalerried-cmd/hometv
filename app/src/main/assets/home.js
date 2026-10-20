@@ -2,7 +2,7 @@
 /* HomeTV: dashboard (clock, weather, news), public sections (films, cameras, radio) and the private
    area behind a decoy password prompt (press OK three times quickly). Uses helpers from index.html at runtime. */
 var unlocked = false;
-var PUB_TABS = [['dash','Home'],['movies','Filme'],['comedy','Comedy'],['cams','Kameras'],['radio','Radio'],['search','🎤 Suche'],['priv','Privat'],['set','Einstellungen']];
+var PUB_TABS = [['dash','Home'],['movies','Filme'],['comedy','Comedy'],['cams','Kameras'],['radio','Musik'],['search','🎤 Suche'],['priv','Privat'],['set','Einstellungen']];
 var PRIV_TABS = [['dash','← Home'],['home','Für dich'],['rand','Zufall'],['cats','Kategorien'],['search','🎤 Suche'],['mine','Meine Liste'],['games','Paar-Spiele'],['set','Einstellungen']];
 var PRIV_VIEWS = {priv:1, home:1, rand:1, cats:1, cat:1, mine:1, games:1};
 
@@ -75,7 +75,7 @@ function dash() {
   begin();
   tickClock(); loadWeather(); loadNews();
   addRow('', [['🎬 Filme', function () { go('movies'); }], ['😂 Comedy', function () { go('comedy'); }], ['📷 Kameras', function () { go('cams'); }],
-    ['📻 Radio', function () { go('radio'); }], ['🎤 Suche', function () { voiceSearch(); }],
+    ['🎵 Musik', function () { go('radio'); }], ['🔥 Kaminfeuer', function () { openFire(); }], ['🎤 Suche', function () { voiceSearch(); }],
     ['🔒 Privat', function () { go('priv'); }], ['⚙️ Einstellungen', function () { go('set'); }]], 'tile');
   var cl = load('cams', []);
   if (cl.length) addRow('Kameras', cl.map(function (c, i) { return ['📷 ' + c.name, function () { openCam(i); }]; }), 'tile');
@@ -104,18 +104,113 @@ function playRadio(st) {
   radioAudio.play().catch(function () { toast('Sender nicht erreichbar'); stopRadio(); });
   radioAudio.onerror = function () { toast(st[0] + ' gerade nicht erreichbar'); stopRadio(); };
   $('np').textContent = '♫ ' + st[0] + ' – nochmal OK zum Stoppen';
-  $('np').style.display = 'block';
+  $('np').style.display = fireOn ? 'none' : 'block'; // the fireplace shows its own info line
 }
 function stopRadio() {
   if (radioAudio) { radioAudio.pause(); radioAudio.src = ''; radioAudio = null; }
   radioName = '';
   $('np').style.display = 'none';
 }
+// ad-free mood streams (SomaFM is listener-supported, Radio Swiss runs without ads); editable via content.json "music"
+var MUSIC = [
+  ['Romantisch & Lounge', [['SomaFM Lush', 'https://ice1.somafm.com/lush-128-mp3'], ['Radio Swiss Jazz', 'https://stream.srg-ssr.ch/m/rsj/mp3_128'],
+    ['SomaFM Secret Agent', 'https://ice1.somafm.com/secretagent-128-mp3']]],
+  ['Chillout', [['SomaFM Groove Salad', 'https://ice1.somafm.com/groovesalad-128-mp3'], ['SomaFM Drone Zone', 'https://ice1.somafm.com/dronezone-128-mp3']]],
+  ['Klassik & Pop', [['Radio Swiss Classic', 'https://stream.srg-ssr.ch/m/rsc_de/mp3_128'], ['Radio Swiss Pop', 'https://stream.srg-ssr.ch/m/rsp/mp3_128']]]
+];
+function allStations() { return [].concat.apply([], MUSIC.map(function (g) { return g[1]; })).concat(RADIO); }
 function radio() {
+  var keep = view === 'radio' && lines[L] ? [L, lines[L].i] : null;
   begin();
-  addRow('Radio – OK = abspielen / stoppen (läuft weiter, während du in der App unterwegs bist)',
-    RADIO.map(function (st) { return [(radioName === st[0] ? '♫ ' : '') + st[0], function () { var i = lines[L].i; playRadio(st); radio(); lines[1].i = i; focus(); }]; }), 'tile');
+  addRow('', [['🔥 Kaminfeuer mit Musik', function () { openFire(); }]], 'tile');
+  MUSIC.concat([['Radio Österreich & Bayern', RADIO]]).forEach(function (g) {
+    addRow(g[0] + ' – OK = abspielen / stoppen', g[1].map(function (st) {
+      return [(radioName === st[0] ? '♫ ' : '') + st[0], function () { playRadio(st); radio(); }];
+    }), 'tile');
+  });
   finish();
+  if (keep && lines[keep[0]]) { L = keep[0]; lines[L].i = keep[1]; focus(); }
+}
+
+/* ---------- Kaminfeuer: procedural fire on a small canvas (scaled up = soft glow) + synthesized crackling ---------- */
+var fireOn = false, fireRAF = 0, fireMusic = 0, fctx = null, fGain = null, fPop = 0, fVol = 0.6;
+var FIRE_MUSIC = [null, ['SomaFM Lush', 'https://ice1.somafm.com/lush-128-mp3'], ['Radio Swiss Jazz', 'https://stream.srg-ssr.ch/m/rsj/mp3_128'],
+  ['Radio Swiss Classic', 'https://stream.srg-ssr.ch/m/rsc_de/mp3_128']];
+function openFire() {
+  stopRadio(); fireOn = true; fireMusic = 0;
+  $('fire').style.display = 'block';
+  startFire(); crackle(true); fireInfo();
+}
+function closeFire() {
+  fireOn = false; cancelAnimationFrame(fireRAF); crackle(false); stopRadio();
+  $('fire').style.display = 'none';
+}
+function fireInfo() {
+  var m = FIRE_MUSIC[fireMusic];
+  $('finfo').textContent = 'Musik: ' + (m ? m[0] : 'aus') + ' · OK = Musik wechseln · ▲ ▼ = Knistern ' + Math.round(fVol * 100) + ' % · Zurück = beenden';
+}
+function fireKey(k) {
+  if (fctx && fctx.resume) fctx.resume();
+  if (k === 'Enter') {
+    fireMusic = (fireMusic + 1) % FIRE_MUSIC.length;
+    stopRadio();
+    if (FIRE_MUSIC[fireMusic]) playRadio(FIRE_MUSIC[fireMusic]);
+  } else if (k === 'ArrowUp' || k === 'ArrowDown') {
+    fVol = Math.max(0, Math.min(1, fVol + (k === 'ArrowUp' ? 0.2 : -0.2)));
+    if (fGain) fGain.gain.value = 0.3 * fVol;
+  } else return;
+  fireInfo();
+}
+function startFire() {
+  var c = $('firec'), x = c.getContext('2d'), W = c.width = 320, H = c.height = 180, ps = [], t = 0;
+  (function step() {
+    if (!fireOn) return;
+    t += 0.05;
+    x.globalCompositeOperation = 'source-over';
+    x.fillStyle = 'rgba(8,3,1,0.35)'; x.fillRect(0, 0, W, H);
+    var glow = x.createRadialGradient(W / 2, H * 0.9, 5, W / 2, H * 0.9, W * 0.6);
+    glow.addColorStop(0, 'rgba(120,40,5,' + (0.25 + Math.sin(t * 3) * 0.04) + ')'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = glow; x.fillRect(0, 0, W, H);
+    for (var i = 0; i < 6; i++) ps.push({x:W / 2 + (Math.random() + Math.random() - 1) * W * 0.17, y:H * 0.85, vx:(Math.random() - 0.5) * 0.3,
+      vy:-(0.5 + Math.random() * 0.9), r:6 + Math.random() * 10, life:1});
+    if (Math.random() < 0.15) ps.push({x:W / 2 + (Math.random() - 0.5) * W * 0.25, y:H * 0.8, vx:(Math.random() - 0.5) * 0.8,
+      vy:-(1.2 + Math.random()), r:1.2, life:1, ember:1});
+    x.globalCompositeOperation = 'lighter';
+    ps = ps.filter(function (p) { return p.life > 0; });
+    ps.forEach(function (p) {
+      p.x += p.vx + Math.sin(p.y * 0.08 + t) * 0.3; p.y += p.vy; p.life -= p.ember ? 0.008 : 0.02; p.r *= p.ember ? 1 : 0.985;
+      var g = x.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * (p.ember ? 2 : 1));
+      g.addColorStop(0, 'rgba(255,210,120,' + p.life * 0.65 + ')');
+      g.addColorStop(0.4, 'rgba(255,120,20,' + p.life * 0.55 + ')');
+      g.addColorStop(1, 'rgba(120,20,0,0)');
+      x.fillStyle = g; x.beginPath(); x.arc(p.x, p.y, p.r * (p.ember ? 2 : 1), 0, 7); x.fill();
+    });
+    x.globalCompositeOperation = 'source-over';
+    x.fillStyle = '#1e0f07';
+    x.save(); x.translate(W / 2, H * 0.9); x.rotate(0.12); x.fillRect(-W * 0.2, -4, W * 0.4, 9); x.rotate(-0.24); x.fillRect(-W * 0.2, -4, W * 0.4, 9); x.restore();
+    fireRAF = requestAnimationFrame(step);
+  })();
+}
+function crackle(on) {
+  clearTimeout(fPop);
+  if (!on) { if (fctx) { try { fctx.close(); } catch (e) { } } fctx = null; fGain = null; return; }
+  try { fctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  var sr = fctx.sampleRate, buf = fctx.createBuffer(1, sr * 2, sr), d = buf.getChannelData(0), last = 0;
+  for (var i = 0; i < d.length; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; } // brown noise = roar
+  var src = fctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  var lp = fctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500;
+  fGain = fctx.createGain(); fGain.gain.value = 0.3 * fVol;
+  src.connect(lp); lp.connect(fGain); fGain.connect(fctx.destination); src.start();
+  (function pop() { // short filtered noise bursts = crackles
+    if (!fctx) return;
+    var b = fctx.createBuffer(1, Math.floor(sr * 0.03), sr), dd = b.getChannelData(0);
+    for (var j = 0; j < dd.length; j++) dd[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / dd.length, 4);
+    var n = fctx.createBufferSource(); n.buffer = b;
+    var hp = fctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500 + Math.random() * 3000;
+    var gg = fctx.createGain(); gg.gain.value = (0.05 + Math.random() * 0.3) * fVol;
+    n.connect(hp); hp.connect(gg); gg.connect(fctx.destination); n.start();
+    fPop = setTimeout(pop, 60 + Math.random() * (Math.random() < 0.2 ? 80 : 600));
+  })();
 }
 
 /* ---------- Tapo cameras (RTSP via the camera account, home network only) ---------- */

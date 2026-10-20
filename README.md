@@ -51,6 +51,10 @@ schaltet frei, beim Zurück zu Home wird wieder gesperrt. Die öffentliche Suche
 - **Netzkino** in „Filme“: ganze Kinofilme gratis und legal (offizieller YouTube-Kanal).
 - **Deine Apps** am Startbild: Netflix, Prime Video, Disney+, Joyn … direkt starten.
 
+## Musik & Kaminfeuer
+Musik nach Stimmung (SomaFM, Radio Swiss – werbefrei; Liste in content.json "music") und Radio.
+**Kaminfeuer**: Feuer im Vollbild mit Knistern, OK = Musik dazu, ▲ ▼ = Knistern-Lautstärke.
+
 ## Interaktive Geschichten
 In den Paar-Spielen: die App erzählt, ihr entscheidet mit ◀ ▶, mit Aufgaben und Timer (Berghütte, Hotelzimmer, Masseur-Abend).
 Weitere Geschichten in content.json → games.stories.

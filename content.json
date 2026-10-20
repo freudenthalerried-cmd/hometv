@@ -1,5 +1,5 @@
 {
- "_hilfe": "Inhalte von AbendKino. Nach dem Speichern auf GitHub sind sie in ca. 1 Minute am Fire TV (nach App-Neustart). Spiele: je 3 Stufen [Romantisch, Prickelnd, Heiß]. Karten/Massage: [Text, Sekunden]. Geschichten: Knoten mit t=Text, task=[Aufgabe, Sekunden], c=[[Wahl, nächster Knoten], …]. Comedy: wie Filme. YouTube: [Name, Kanal-ID UC…]. Radio: [Name, https-Stream-Adresse]. Filme: [Name, Suchbegriff, tt=Titel/Thema oder ttd=auch Beschreibung, Mindestlänge in Sekunden].",
+ "_hilfe": "Inhalte von AbendKino. Nach dem Speichern auf GitHub sind sie in ca. 1 Minute am Fire TV (nach App-Neustart). Spiele: je 3 Stufen [Romantisch, Prickelnd, Heiß]. Karten/Massage: [Text, Sekunden]. Geschichten: Knoten mit t=Text, task=[Aufgabe, Sekunden], c=[[Wahl, nächster Knoten], …]. Comedy: wie Filme. YouTube: [Name, Kanal-ID UC…]. Musik: [Gruppe, [[Name, https-Stream], …]]. Radio: [Name, https-Stream-Adresse]. Filme: [Name, Suchbegriff, tt=Titel/Thema oder ttd=auch Beschreibung, Mindestlänge in Sekunden].",
  "version": 1,
  "categories": [
    ["Amateur", "amateur"],
@@ -57,6 +57,11 @@
  ],
  "youtube": [
    ["heute-show auf YouTube", "UCFqcNI0NaAA21NS9W3ExCRg"]
+ ],
+ "music": [
+   ["Romantisch & Lounge", [["SomaFM Lush", "https://ice1.somafm.com/lush-128-mp3"], ["Radio Swiss Jazz", "https://stream.srg-ssr.ch/m/rsj/mp3_128"], ["SomaFM Secret Agent", "https://ice1.somafm.com/secretagent-128-mp3"]]],
+   ["Chillout", [["SomaFM Groove Salad", "https://ice1.somafm.com/groovesalad-128-mp3"], ["SomaFM Drone Zone", "https://ice1.somafm.com/dronezone-128-mp3"]]],
+   ["Klassik & Pop", [["Radio Swiss Classic", "https://stream.srg-ssr.ch/m/rsc_de/mp3_128"], ["Radio Swiss Pop", "https://stream.srg-ssr.ch/m/rsp/mp3_128"]]]
  ],
  "radio": [
    ["Ö3", "https://orf-live.ors-shoutcast.at/oe3-q2a"],

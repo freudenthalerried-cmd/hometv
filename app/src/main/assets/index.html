@@ -61,6 +61,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 #gsub{font-size:2.2vh;color:#999}
 #ghelp{position:absolute;bottom:5vh;font-size:2.2vh;color:#888}
 #lock{position:fixed;top:0;left:0;right:0;bottom:0;z-index:30;background:#0b0b10;display:none;flex-direction:column;align-items:center;justify-content:center;gap:3vh;font-size:3.4vh}
+#fire{position:fixed;top:0;left:0;right:0;bottom:0;z-index:7;background:#080301;display:none}
+#firec{width:100vw;height:100vh;display:block}
+#finfo{position:absolute;left:0;right:0;bottom:5vh;text-align:center;font-size:2.2vh;color:#c96;opacity:.8}
 #act{position:fixed;top:0;left:0;right:0;bottom:0;z-index:26;background:#000b;display:none;align-items:center;justify-content:center}
 #act .box{max-width:70vw;padding:4vh 3vw;border-radius:2vh;background:#1b1b24;text-align:center}
 #act h1{font-size:3.4vh;margin-bottom:3vh;max-height:9vh;overflow:hidden}
@@ -115,6 +118,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 <div id="lock"><div id="ltitle"></div><div id="ldots"></div><div style="font-size:2.2vh;color:#888">4 Pfeiltasten drücken · Zurück = Beenden</div></div>
 <div id="upd"><div class="box"><h1 id="uh"></h1><p id="un"></p><div class="k">OK = jetzt aktualisieren · Zurück = später</div></div></div>
 <script src="games.js"></script>
+<div id="fire"><canvas id="firec"></canvas><div id="finfo"></div></div>
 <div id="act"><div class="box"><h1 id="at"></h1><div id="ar"></div><div class="k" id="ak"></div></div></div>
 <script src="home.js"></script>
 <script src="rate.js"></script>
@@ -421,6 +425,7 @@ document.addEventListener('keydown', function (ev) {
   if (lockOn) { lockKey(k); ev.preventDefault(); return; }
   if (gateOn) { gateKey(k); ev.preventDefault(); return; }
   if (actOn) { if (/^Arrow|Enter/.test(k)) actKey(k); ev.preventDefault(); return; }
+  if (fireOn) { fireKey(k); ev.preventDefault(); return; }
   if (updOn) { if (k === 'Enter') { hideUpd(); A.update(UPD + 'AbendKino.apk'); } ev.preventDefault(); return; }
   if (Games.active()) { if (/^Arrow|Enter/.test(k)) { Games.key(k); ev.preventDefault(); } return; }
   if (!ln) return;
@@ -443,6 +448,7 @@ window.onBack = function () {
   if (lockOn) return false;
   if (gateOn) { hideGate(); return true; }
   if (actOn) { closeAct(); return true; }
+  if (fireOn) { closeFire(); return true; }
   if (updOn) { hideUpd(); return true; }
   if (Games.active()) { Games.close(); return true; }
   var ln = lines[L];
@@ -670,6 +676,9 @@ function applyContent(c) {
   if (list(c.filme, isRow)) MV_ROWS = c.filme.map(function (r) { return [r[0], {q:r[1], f:r[2] === 'ttd' ? TTD : TT, min:r[3]}]; });
   if (list(c.comedy, isRow)) COMEDY_MV = c.comedy;
   if (list(c.youtube, function (r) { return isPair(r) && /^UC[\w-]{22}$/.test(r[1]); })) YT_COMEDY = c.youtube;
+  if (list(c.music, function (g) {
+    return Array.isArray(g) && g.length === 2 && isText(g[0]) && list(g[1], function (r) { return isPair(r) && /^https:\/\//.test(r[1]); });
+  })) MUSIC = c.music;
   if (list(c.radio, function (r) { return isPair(r) && /^https:\/\//.test(r[1]); })) RADIO = c.radio;
   Games.setContent(c.games);
   contentVer = +c.version || 0;
@@ -800,8 +809,9 @@ function doCommand(text) {
     var cl = load('cams', []), ci = cl.findIndex(function (c) { return q.indexOf(c.name.toLowerCase()) >= 0; });
     return ci >= 0 ? openCam(ci) : go('cams');
   }
-  if (/radio|sender|musik/.test(q) || RADIO.some(function (st) { return q === st[0].toLowerCase(); })) {
-    var st = RADIO.filter(function (x) { return q.indexOf(x[0].toLowerCase()) >= 0; })[0];
+  if (/kamin|feuer/.test(q)) return openFire();
+  if (/radio|sender|musik|jazz|lounge|klassik/.test(q) || allStations().some(function (st) { return q === st[0].toLowerCase(); })) {
+    var st = allStations().filter(function (x) { return q.indexOf(x[0].toLowerCase()) >= 0; })[0];
     if (st) playRadio(st);
     return go('radio');
   }
