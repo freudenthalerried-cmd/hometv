@@ -17,7 +17,7 @@ jobs:
       - run: gradle assembleRelease --no-daemon
       - run: |
           cp app/build/outputs/apk/release/app-release.apk AbendKino.apk
-          python3 -c 'import json,os; m=(os.environ.get("MSG") or "").splitlines(); print(json.dumps({"versionCode": int(os.environ["N"]), "notes": m[0] if m else ""}, ensure_ascii=False))' > version.json
+          python3 -c 'import json,os; m=(os.environ.get("MSG") or "").splitlines(); print(json.dumps({"versionCode": 100 + int(os.environ["N"]), "notes": m[0] if m else ""}, ensure_ascii=False))' > version.json
           cat version.json
         env:
           N: ${{ github.run_number }}

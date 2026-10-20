@@ -294,7 +294,8 @@ function cardHTML(v) {
     '<span class="ch">' + esc(v.channel) + '</span><div class="mt">' + esc(v.title) + '</div><span class="d">' + dur(v.length_sec) + '</span>' +
     (isFav(v.id) ? '<span class="fav">♥</span>' : '') + (pct ? '<span class="w" style="width:' + pct + '%"></span>' : '') + '</div>';
   return '<div class="card f"><img src="' + esc(v.default_thumb && v.default_thumb.src || '') + '">' +
-    '<span class="d">' + dur(v.length_sec) + '</span><span class="s">' + (SRC[v.src || 'ep'] || SRC.ep).name + '</span>' + (isFav(v.id) ? '<span class="fav">♥</span>' : '') +
+    (v.length_sec ? '<span class="d">' + dur(v.length_sec) + '</span>' : '') +
+    '<span class="s">' + (v.src === 'yt' ? 'YouTube' : (SRC[v.src || 'ep'] || SRC.ep).name) + '</span>' + (isFav(v.id) ? '<span class="fav">♥</span>' : '') +
     (pct ? '<span class="w" style="width:' + pct + '%"></span>' : '') + '<div class="t">' + esc(v.title) + '</div></div>';
 }
 // spec = serializable description of the row ({query, order, page} or {fy:1}); lets rows load endlessly
@@ -361,6 +362,11 @@ function hero(v) {
   var big = v.default_thumb && v.default_thumb.src || th[0] || '';
   $('hero').style.backgroundImage = 'url("' + big + '")';
   $('ht').textContent = v.title;
+  if (v.src === 'yt') {
+    $('hm').innerHTML = '<b>' + esc(v.channel) + '</b> · YouTube' + (v.date ? ' · ' + new Date(v.date * 1000).toLocaleDateString('de-AT') : '');
+    $('hg').textContent = (v.desc || '').slice(0, 170);
+    return;
+  }
   if (v.src === 'mv') {
     $('hm').innerHTML = '<b>' + esc(v.channel) + '</b> · ' + dur(v.length_sec) + ' · ' + esc(v.topic || '') +
       (v.date ? ' · ' + new Date(v.date * 1000).toLocaleDateString('de-AT') : '') + (P.watched[v.id] ? ' · gesehen' : '');
@@ -449,7 +455,7 @@ function slim(v) {
 function play(v) {
   stopRadio();
   lastPlayed = v;
-  if (v.src !== 'mv') learn(v, 1); // normal films don't feed the taste profile
+  if (v.src !== 'mv' && v.src !== 'yt') learn(v, 1); // normal films and YouTube don't feed the taste profile
   P.hist = [slim(v)].concat(P.hist.filter(function (x) { return x.id !== v.id; })).slice(0, 60);
   save('profile', P);
   // continue where it was left off (not in the first minute or the last two)
@@ -474,7 +480,7 @@ window.onPlayResult = function (id, ok, info) {
     if (v.urls) mvOk[v.urls[0]] = [false, Date.now()], save('mvOk', mvOk);
     save('profile', P);
   }
-  if (src === 'mv') return;
+  if (src === 'mv' || src === 'yt') return;
   // a source that keeps failing on this device is switched off automatically
   var st = (srcStats[src] = (srcStats[src] || []).concat([ok ? 1 : 0]).slice(-6));
   save('srcStats', srcStats);
@@ -488,7 +494,7 @@ window.onPlayerClosed = function (id, sec) {
   var v = lastPlayed; if (!v || v.id !== id) return;
   P.watched[id] = Math.max(P.watched[id] || 0, sec);
   var ids = Object.keys(P.watched); if (ids.length > 3000) delete P.watched[ids[0]];
-  if (v.src === 'mv') { save('profile', P); return; }
+  if (v.src === 'mv' || v.src === 'yt') { save('profile', P); return; }
   if (sec >= 300) learn(v, 2);           // really watched -> strong positive signal
   else if (sec < 45) learn(v, -1.5);     // skipped quickly -> not my taste
   save('profile', P);
@@ -501,7 +507,7 @@ function go(v) {
   if (v === 'priv') v = 'home';
   if (v === 'rand') return randomPlay();
   document.body.classList.toggle('dashv', v === 'dash');
-  view = v; ({dash:dash, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
+  view = v; ({dash:dash, comedy:comedy, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
 }
 function randomPlay() {
   toast('Suche einen Film für dich …');
@@ -622,6 +628,7 @@ function filme() {
     [].slice.call($('rows').querySelectorAll('.msg')).forEach(function (m) { m.remove(); });
     MV_ROWS.forEach(function (x, i) { addRow(x[0], res[i], null, specs[i]); });
     if (lines.length < 3) msg('Mediatheken gerade nicht erreichbar.');
+    ytFeed(NETZKINO[0], NETZKINO[1]).then(function (l) { if (view === 'movies') addRow(NETZKINO[0], l); });
     if (L === 1 && lines.length > 2) { L = 2; focus(); }
   });
 }
@@ -642,6 +649,8 @@ function applyContent(c) {
   if (!c || typeof c !== 'object') return false;
   if (list(c.categories, isPair)) CATS = c.categories;
   if (list(c.filme, isRow)) MV_ROWS = c.filme.map(function (r) { return [r[0], {q:r[1], f:r[2] === 'ttd' ? TTD : TT, min:r[3]}]; });
+  if (list(c.comedy, isRow)) COMEDY_MV = c.comedy;
+  if (list(c.youtube, function (r) { return isPair(r) && /^UC[\w-]{22}$/.test(r[1]); })) YT_COMEDY = c.youtube;
   if (list(c.radio, function (r) { return isPair(r) && /^https:\/\//.test(r[1]); })) RADIO = c.radio;
   Games.setContent(c.games);
   contentVer = +c.version || 0;
@@ -763,6 +772,11 @@ var FILLER = {zeig:1, zeige:1, mir:1, uns:1, spiel:1, spiele:1, start:1, starte:
 function doCommand(text) {
   var q = text.toLowerCase().replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
   if (/wetter|uhrzeit|nachrichten/.test(q)) return go('dash');
+  if (/comedy|kabarett|lustig|witz|satire/.test(q)) return go('comedy');
+  if (/netflix|prime|disney|joyn|app\b/.test(q)) {
+    var ap = myApps().filter(function (a) { return q.indexOf(a[0].toLowerCase().split(' ')[0]) >= 0; })[0];
+    if (ap) return A.launch(ap[1]);
+  }
   if (/kamera/.test(q)) {
     var cl = load('cams', []), ci = cl.findIndex(function (c) { return q.indexOf(c.name.toLowerCase()) >= 0; });
     return ci >= 0 ? openCam(ci) : go('cams');

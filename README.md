@@ -8,7 +8,7 @@ URL in Downloader eingeben:
 
     https://github.com/freudenthalerried-cmd/hometv/releases/download/firetv/AbendKino.apk
 
-Downloader-Code: unter go.aftvnews.com für den Link oben anlegen.
+**Downloader-Code: `2001529`** (aftv.news/2001529)
 
 Updates: in der App unter Einstellungen → „Jetzt aktualisieren“ (App prüft beim Start automatisch).
 Beim ersten Update einmal „Unbekannte Apps installieren“ für AbendKino erlauben.
@@ -44,3 +44,9 @@ Ungültige Einträge werden ignoriert, dann gelten die eingebauten Inhalte.
 Uhr, Wetter (Open-Meteo, Ort in Einstellungen), ORF-Nachrichten, Kacheln: Filme, Kameras (Tapo per RTSP-Kamerakonto,
 nur im Heimnetz), Radio (Liste in content.json), Suche, Privat. **Privat**: Passwort-Abfrage zur Tarnung – 3× schnell OK
 schaltet frei, beim Zurück zu Home wird wieder gesperrt. Die öffentliche Suche findet nur Mediathek-Filme.
+
+## Comedy, Netzkino, Apps
+- **Comedy**: ganze Sendungen aus den Mediatheken (heute-show, extra 3, Die Anstalt, Willkommen Österreich, Kabarett …) und
+  offizielle YouTube-Kanäle (Liste in content.json → "youtube": [Name, Kanal-ID]).
+- **Netzkino** in „Filme“: ganze Kinofilme gratis und legal (offizieller YouTube-Kanal).
+- **Deine Apps** am Startbild: Netflix, Prime Video, Disney+, Joyn … direkt starten.

@@ -1,6 +1,7 @@
 plugins { id 'com.android.application' }
 
-def runNo = Integer.parseInt(System.getenv('GITHUB_RUN_NUMBER') ?: '1')
+// +100: continues above the versions built in the old repo (no downgrade on update)
+def runNo = 100 + Integer.parseInt(System.getenv('GITHUB_RUN_NUMBER') ?: '1')
 
 android {
     namespace 'at.sf.abendkino'

@@ -2,7 +2,7 @@
 /* HomeTV: dashboard (clock, weather, news), public sections (films, cameras, radio) and the private
    area behind a decoy password prompt (press OK three times quickly). Uses helpers from index.html at runtime. */
 var unlocked = false;
-var PUB_TABS = [['dash','Home'],['movies','Filme'],['cams','Kameras'],['radio','Radio'],['search','🎤 Suche'],['priv','Privat'],['set','Einstellungen']];
+var PUB_TABS = [['dash','Home'],['movies','Filme'],['comedy','Comedy'],['cams','Kameras'],['radio','Radio'],['search','🎤 Suche'],['priv','Privat'],['set','Einstellungen']];
 var PRIV_TABS = [['dash','← Home'],['home','Für dich'],['rand','Zufall'],['cats','Kategorien'],['search','🎤 Suche'],['mine','Meine Liste'],['games','Paar-Spiele'],['set','Einstellungen']];
 var PRIV_VIEWS = {priv:1, home:1, rand:1, cats:1, cat:1, mine:1, games:1};
 
@@ -74,11 +74,13 @@ function dash() {
   unlocked = false;
   begin();
   tickClock(); loadWeather(); loadNews();
-  addRow('', [['🎬 Filme', function () { go('movies'); }], ['📷 Kameras', function () { go('cams'); }],
+  addRow('', [['🎬 Filme', function () { go('movies'); }], ['😂 Comedy', function () { go('comedy'); }], ['📷 Kameras', function () { go('cams'); }],
     ['📻 Radio', function () { go('radio'); }], ['🎤 Suche', function () { voiceSearch(); }],
     ['🔒 Privat', function () { go('priv'); }], ['⚙️ Einstellungen', function () { go('set'); }]], 'tile');
   var cl = load('cams', []);
   if (cl.length) addRow('Kameras', cl.map(function (c, i) { return ['📷 ' + c.name, function () { openCam(i); }]; }), 'tile');
+  var apps = myApps();
+  if (apps.length) addRow('Deine Apps', apps.map(function (a) { return ['▶ ' + a[0], function () { stopRadio(); A.launch(a[1]); }]; }), 'tile');
   finish();
   movies({mv:1, q:'spielfilm', f:TT, page:1}).then(function (list) {
     if (view === 'dash' && list.length) addRow('Neu in den Mediatheken', list, null, {mv:1, q:'spielfilm', f:TT, page:1});
@@ -173,4 +175,53 @@ function wxLocRow() {
       toast('Wetter für ' + r.name); settings();
     }).catch(function () { toast('Ort-Suche fehlgeschlagen'); });
   }, true);
+}
+
+/* ---------- installed TV apps (Netflix, Prime Video, Disney+ …) ---------- */
+var APP_ORDER = ['netflix', 'prime', 'disney', 'joyn', 'rtl', 'orf', 'zdf', 'ard', 'arte', 'youtube', 'wow', 'sky', 'dazn', 'magenta', 'waipu', 'zattoo', 'spotify'];
+function myApps() {
+  var list = [];
+  try { list = JSON.parse(A.apps ? A.apps() : '[]'); } catch (e) { }
+  var rank = function (a) {
+    var n = (a[0] + ' ' + a[1]).toLowerCase();
+    for (var i = 0; i < APP_ORDER.length; i++) if (n.indexOf(APP_ORDER[i]) >= 0) return i;
+    return 99;
+  };
+  return list.filter(function (a) { return rank(a) < 99; }).sort(function (a, b) { return rank(a) - rank(b); }).slice(0, 12);
+}
+
+/* ---------- YouTube channel feeds (official channels, played via the privacy-friendly embed) ---------- */
+var YT_COMEDY = [['heute-show auf YouTube', 'UCFqcNI0NaAA21NS9W3ExCRg']];
+var NETZKINO = ['Netzkino – ganze Kinofilme gratis & legal', 'UCGkHFrwE8KEuOHPVsIOskAg'];
+function ytFeed(name, id) {
+  return http('https://www.youtube.com/feeds/videos.xml?channel_id=' + encodeURIComponent(id)).then(function (t) {
+    var doc = new DOMParser().parseFromString(t, 'text/xml');
+    var tag = function (el, n) { var x = el.getElementsByTagNameNS('*', n)[0]; return x ? x.textContent : ''; };
+    return [].slice.call(doc.getElementsByTagNameNS('*', 'entry')).map(function (e) {
+      var vid = tag(e, 'videoId');
+      if (!/^[\w-]{11}$/.test(vid)) return null;
+      return {id:'yt:' + vid, src:'yt', channel:name.split(' –')[0], title:tag(e, 'title'), desc:tag(e, 'description'),
+        date:Date.parse(tag(e, 'published')) / 1000 || 0, length_sec:0, keywords:'', views:0, rate:0,
+        embed:'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&modestbranding=1',
+        default_thumb:{src:'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg'}, thumbs:[]};
+    }).filter(function (v) { return v && !P.bad[v.id]; });
+  }).catch(function () { return []; });
+}
+
+/* ---------- Comedy: whole shows from the Mediatheken + official YouTube channels ---------- */
+var COMEDY_MV = [['heute-show', 'heute-show', 'tt', 1200], ['extra 3', 'extra 3', 'tt', 1200], ['Die Anstalt', 'die anstalt', 'tt', 1800],
+  ['Willkommen Österreich', 'willkommen österreich', 'tt', 1800], ['Mitternachtsspitzen', 'mitternachtsspitzen', 'tt', 1800],
+  ['Kabarett', 'kabarett', 'ttd', 2400], ['Comedy & Satire', 'comedy', 'ttd', 1200]];
+function comedy() {
+  begin(); msg('Lade Comedy aus Mediatheken und YouTube …'); finish();
+  var specs = COMEDY_MV.map(function (r) { return {mv:1, page:1, q:r[1], f:r[2] === 'ttd' ? TTD : TT, min:r[3]}; });
+  Promise.all(specs.map(movies).concat(YT_COMEDY.map(function (c) { return ytFeed(c[0], c[1]); }))).then(function (res) {
+    if (view !== 'comedy') return;
+    [].slice.call($('rows').querySelectorAll('.msg')).forEach(function (m) { m.remove(); });
+    COMEDY_MV.forEach(function (r, i) { addRow(r[0] + ' – ganze Sendungen', res[i], null, specs[i]); });
+    YT_COMEDY.forEach(function (c, i) { addRow(c[0], res[COMEDY_MV.length + i]); });
+    if (lines.length < 2) msg('Gerade nichts erreichbar.');
+    if (L === 0 && lines.length > 1) L = 1;
+    focus();
+  });
 }

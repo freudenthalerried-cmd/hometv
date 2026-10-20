@@ -54,6 +54,7 @@ public class MainActivity extends Activity {
     // Strict mode: only the video sites themselves and their CDNs may load anything.
     private static final String[] ALLOWED = {"eporner.com", "pornhub.com", "phncdn.com", "redtube.com", "rdtcdn.com",
             "cdnjs.cloudflare.com", "ajax.googleapis.com", "jsdelivr.net",
+            "youtube-nocookie.com", "youtube.com", "ytimg.com", "googlevideo.com", "ggpht.com", "gstatic.com",
             "akamaihd.net", "akamaized.net", "zdf.de", "ard.de", "ardmediathek.de", "arte.tv", "3sat.de", "orf.at", "srf.ch"};
     private static final Pattern MEDIA = Pattern.compile("\\.(mp4|m3u8|ts|m4s|webm)(\\?|$)");
 
@@ -410,6 +411,31 @@ public class MainActivity extends Activity {
         public void camera(final String camsJson, final int index) {
             runOnUiThread(() -> startActivity(new Intent(MainActivity.this, CameraActivity.class)
                     .putExtra("cams", camsJson).putExtra("index", index)));
+        }
+
+        /** Installed TV apps as JSON [[label, package], ...] for the launcher row. */
+        @JavascriptInterface
+        public String apps() {
+            JSONArray out = new JSONArray();
+            try {
+                android.content.pm.PackageManager pm = getPackageManager();
+                Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
+                for (android.content.pm.ResolveInfo r : pm.queryIntentActivities(i, 0)) {
+                    String p = r.activityInfo.packageName;
+                    if (!p.equals(getPackageName())) out.put(new JSONArray().put(String.valueOf(r.loadLabel(pm))).put(p));
+                }
+            } catch (Exception ignored) { }
+            return out.toString();
+        }
+
+        @JavascriptInterface
+        public void launch(final String pkg) {
+            runOnUiThread(() -> {
+                android.content.pm.PackageManager pm = getPackageManager();
+                Intent i = pm.getLeanbackLaunchIntentForPackage(pkg);
+                if (i == null) i = pm.getLaunchIntentForPackage(pkg);
+                if (i != null) startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            });
         }
 
         @JavascriptInterface

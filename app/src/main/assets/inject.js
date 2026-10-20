@@ -37,7 +37,7 @@
 
   // Start playback automatically and pick the highest quality the player offers.
   var started = false, userPaused = false, clicks = 0;
-  var PLAY = '.vjs-big-play-button,.mgp_playIcon,.mgp_bigPlay,[class*="bigPlay"],[class*="big-play"],' +
+  var PLAY = '.ytp-large-play-button,.vjs-big-play-button,.mgp_playIcon,.mgp_bigPlay,[class*="bigPlay"],[class*="big-play"],' +
     '[class*="play-button"],[class*="playButton"],[class*="playbtn"]';
   var iv = setInterval(function () {
     var e = v();
