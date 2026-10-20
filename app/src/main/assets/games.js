@@ -180,6 +180,79 @@ var Games = (function () {
     ['Erzählt euch euer erstes Mal – und was ihr heute anders machen würdet.', 'Welche Nacht war eure beste? Stellt sie nach.',
      'Was hast du dich früher nie getraut, mir zu sagen?', 'Welche Berührung von früher vermisst du? Zeig sie mir.']
   ];
+  // --- interactive stories: nodes with text, an optional task [text, seconds] and choices [label, next] ---
+  var STORIES = [
+    {title:'Die Berghütte', level:1, start:'s', nodes:{
+      s:{t:'Ein verschneites Wochenende. Ihr kommt in einer kleinen Berghütte an. Draußen tobt der Sturm, drinnen knistert der Kamin.',
+         c:[['Zuerst ein heißes Bad', 'bad'], ['Gleich vor den Kamin', 'kamin']]},
+      bad:{t:'Das Wasser dampft, Kerzen flackern. Einer von euch wäscht dem anderen langsam den Rücken.',
+         task:['Wascht euch gegenseitig Rücken und Nacken – ganz langsam.', 120], c:[['Gemeinsam ins Handtuch', 'handtuch'], ['Liegen bleiben und reden', 'reden']]},
+      kamin:{t:'Ihr breitet Decken vor dem Feuer aus. Der Wein ist warm, die Stimmung auch.',
+         task:['Erzählt euch, was ihr am anderen am meisten liebt.', 90], c:[['Massage am Feuer', 'massage'], ['Ein langsamer Tanz', 'tanz']]},
+      handtuch:{t:'Eingewickelt in ein einziges großes Handtuch steht ihr vor dem Spiegel.',
+         task:['Küsst euch 30 Sekunden – ohne Hände.', 30], c:[['Ins Bett', 'bett'], ['Zurück vor den Kamin', 'kamin2']]},
+      reden:{t:'Ihr redet, bis das Wasser kühl wird – über früher, über Träume.',
+         task:['Jeder erzählt einen Wunsch für das nächste Jahr.', 120], c:[['Ins Bett', 'bett'], ['Vor den Kamin', 'kamin2']]},
+      massage:{t:'Das Feuer wärmt, eure Hände auch. Einer liegt, der andere verwöhnt.',
+         task:['Massage mit warmem Öl – Rücken, Schultern, Beine.', 180], c:[['Rollen tauschen und dann ins Bett', 'bett'], ['Am Feuer einschlafen', 'feuer']]},
+      tanz:{t:'Keine Musik, nur das Knistern des Holzes. Ihr tanzt eng umschlungen.',
+         task:['Stirn an Stirn, Augen zu – tanzt eine Minute.', 60], c:[['Ins Bett tragen lassen', 'bett'], ['Weitertanzen', 'feuer']]},
+      kamin2:{t:'Am Ende landet ihr doch wieder vor dem Feuer, eng aneinander.',
+         task:['Streichelt euch gegenseitig, ohne ein Wort zu sagen.', 90], c:[['Ins Bett', 'bett'], ['Am Feuer bleiben', 'feuer']]},
+      bett:{t:'Die Decke ist schwer und warm, draußen heult der Wind. Was jetzt passiert, entscheidet ihr allein.', c:[]},
+      feuer:{t:'Ihr schlaft aneinandergekuschelt vor dem Feuer ein. Am Morgen ist draußen alles weiß.', c:[]}
+    }},
+    {title:'Das Hotelzimmer', level:2, start:'s', nodes:{
+      s:{t:'Ihr tut so, als würdet ihr euch nicht kennen. Hotelbar, später Abend. Einer sitzt schon da, der andere kommt herein.',
+         c:[['Ansprechen', 'sprechen'], ['Nur Blicke tauschen', 'blicke']]},
+      sprechen:{t:'Ein Drink, ein Lächeln, ein Satz, der hängen bleibt.',
+         task:['Der Neue an der Bar macht ein Kompliment – erfunden, aber ernst gemeint.', 60], c:[['Zum Aufzug', 'aufzug'], ['Noch ein Drink', 'drink']]},
+      blicke:{t:'Niemand sagt etwas. Nur Blicke, die länger dauern als nötig.',
+         task:['Schaut euch 60 Sekunden schweigend in die Augen.', 60], c:[['Zimmernummer zuschieben', 'aufzug'], ['Hingehen und flüstern', 'drink']]},
+      drink:{t:'Beim zweiten Drink rückt ihr näher. Eine Hand liegt wie zufällig auf dem Knie.',
+         task:['Flüstere dem anderen ins Ohr, was du dir gerade vorstellst.', 45], c:[['Zum Aufzug', 'aufzug']]},
+      aufzug:{t:'Die Aufzugtür schließt sich. Zwölf Stockwerke.',
+         task:['Küsst euch, bis der Aufzug oben ist – zählt langsam bis 30.', 30], c:[['Im Zimmer: Licht an', 'licht'], ['Im Zimmer: Licht aus', 'dunkel']]},
+      licht:{t:'Das Zimmer ist hell, das Bett riesig. Einer setzt sich, der andere bleibt stehen.',
+         task:['Ein langsamer Strip – ein Kleidungsstück alle 20 Sekunden.', 120], c:[['Weiter im Bett', 'bett'], ['Weiter in der Dusche', 'dusche']]},
+      dunkel:{t:'Nur das Licht der Stadt fällt herein. Ihr findet euch tastend.',
+         task:['Augen verbunden: nur Hände und Lippen.', 120], c:[['Weiter im Bett', 'bett'], ['Weiter in der Dusche', 'dusche']]},
+      dusche:{t:'Warmes Wasser, Dampf, kein Wort mehr nötig.', c:[]},
+      bett:{t:'Am nächsten Morgen: Zimmerservice für zwei. Wie es weitergeht, wisst ihr.', c:[]}
+    }},
+    {title:'Der Masseur-Abend', level:3, start:'s', nodes:{
+      s:{t:'Heute ist einer von euch Masseur/in, der andere Kunde/Kundin. Termin um 21 Uhr, das Licht ist gedimmt.',
+         c:[['Klassische Massage', 'klassisch'], ['Die „Spezialbehandlung“', 'spezial']]},
+      klassisch:{t:'Es beginnt ganz professionell. Schultern, Rücken, Nacken.',
+         task:['Rückenmassage mit Öl – der Kunde liegt auf dem Bauch.', 180], c:[['Tiefer massieren', 'tiefer'], ['Umdrehen bitten', 'vorne']]},
+      spezial:{t:'Der Masseur verbindet dem Kunden die Augen.',
+         task:['Augenbinde an: Berührungen nur mit den Fingerspitzen.', 120], c:[['Mit Eiswürfel', 'eis'], ['Mit warmem Atem', 'atem']]},
+      tiefer:{t:'Die Hände wandern zum unteren Rücken, zu den Oberschenkeln.',
+         task:['Massiere Po und Oberschenkel – der Kunde darf nichts sagen.', 120], c:[['Umdrehen bitten', 'vorne']]},
+      eis:{t:'Kalt und heiß wechseln sich ab.',
+         task:['Ein Eiswürfel wandert über den Körper – der Kunde rät, wo er als Nächstes ist.', 90], c:[['Umdrehen bitten', 'vorne']]},
+      atem:{t:'Gänsehaut, überall.', task:['Nur warmer Atem und Lippen – keine Hände.', 90], c:[['Umdrehen bitten', 'vorne']]},
+      vorne:{t:'„Bitte umdrehen.“ Die Massage geht vorne weiter.',
+         task:['Bauch, Brust, Innenseite der Oberschenkel – ganz langsam.', 150], c:[['Rollen tauschen', 'tausch'], ['Der Kunde übernimmt', 'kontrolle']]},
+      tausch:{t:'Jetzt ist der andere dran – gleiche Regeln, gleiche Zeit. Der Rest gehört euch.', c:[]},
+      kontrolle:{t:'Der Kunde steht auf und bestimmt ab jetzt, was passiert.', c:[]}
+    }}
+  ];
+  var st = null, stSel = 0; // current story {s, n} or null = story list
+  function storyList() {
+    show('Interaktive Geschichte', 'Wählt eure Geschichte', STORIES.map(function (x, i) {
+      return (i === stSel ? '▶ ' : '   ') + x.title + ' (' + LEVELS[x.level - 1] + ')';
+    }).join('\n'), '▲ ▼ wählen · OK = starten · in der Geschichte: ◀ ▶ entscheiden');
+  }
+  function storyNode() {
+    var n = st.s.nodes[st.n];
+    var body = n.t + (n.task ? '\n\n✦ ' + n.task[0] : '');
+    var sub = n.c.length === 2 ? '◀ ' + n.c[0][0] + '      ·      ' + n.c[1][0] + ' ▶'
+      : n.c.length === 1 ? 'OK / ▶ ' + n.c[0][0] : 'Ende – OK = andere Geschichte';
+    show(st.s.title, '', body, sub);
+    stopTimer(); left = 0; drawTimer();
+    if (n.task && n.task[1]) startTimer(n.task[1]);
+  }
   var yn = null; // Wunsch-Abgleich state
   var WD = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
   var weekDay = 0;
@@ -213,12 +286,12 @@ var Games = (function () {
     ['dice', 'Liebeswürfel'], ['tod', 'Wahrheit oder Pflicht'], ['cards', 'Heiße Karten'],
     ['never', 'Ich hab noch nie'], ['pos', 'Stellungs-Roulette'], ['massage', 'Massage-Reise'],
     ['wwe', 'Wer würde eher?'], ['wyr', 'Würdest du lieber?'], ['role', 'Rollenspiel'], ['quiz', 'Partner-Quiz'], ['deep', 'Nähe-Fragen'],
-    ['yesno', 'Wunsch-Abgleich'], ['date', 'Date-Abend-Generator'], ['week', '7-Tage-Challenge'], ['memory', 'Weißt du noch?']
+    ['story', 'Interaktive Geschichte'], ['yesno', 'Wunsch-Abgleich'], ['date', 'Date-Abend-Generator'], ['week', '7-Tage-Challenge'], ['memory', 'Weißt du noch?']
   ];
   var HELP = {
     dice:'OK = würfeln', tod:'◀ = Wahrheit · ▶ = Pflicht · ▼ = überspringen', cards:'OK = neue Karte · ▶ = Timer start/stop · ▼ = überspringen',
     never:'OK = nächste Aussage · Wer es schon getan hat, legt ein Kleidungsstück ab', pos:'OK = drehen', massage:'OK = nächster Schritt · ▶ = Timer start/stop',
-    yesno:'Jeder bewertet heimlich · ◀ Nein · ▼ Vielleicht · ▶ Ja', date:'OK = neuer Abend', week:'OK = erledigt · ◀ ▶ = Tag wechseln',
+    story:'◀ ▶ = entscheiden · OK = weiter', yesno:'Jeder bewertet heimlich · ◀ Nein · ▼ Vielleicht · ▶ Ja', date:'OK = neuer Abend', week:'OK = erledigt · ◀ ▶ = Tag wechseln',
     memory:'OK = nächste Erinnerung', wwe:'OK = nächste Frage', wyr:'OK = nächste Frage', role:'OK = neue Rollen', quiz:'OK = nächste Frage', deep:'OK = nächste Frage'
   };
 
@@ -291,6 +364,19 @@ var Games = (function () {
       if (k !== 'Enter') return;
       var s = pick(POS, 'pos');
       show('Stellungs-Roulette', s[0], s[1], 'OK = nochmal drehen');
+    } else if (g === 'story') {
+      if (!st) {
+        if (k === 'ArrowUp') stSel = (stSel + STORIES.length - 1) % STORIES.length;
+        else if (k === 'ArrowDown') stSel = (stSel + 1) % STORIES.length;
+        else if (k === 'Enter') { st = {s:STORIES[stSel], n:STORIES[stSel].start}; return storyNode(); }
+        return storyList();
+      }
+      var c = st.s.nodes[st.n].c;
+      if (!c.length) { if (k === 'Enter') { st = null; stopTimer(); storyList(); } return; }
+      var pickC = c.length === 1 ? ((k === 'Enter' || k === 'ArrowRight') ? 0 : -1) : k === 'ArrowLeft' ? 0 : k === 'ArrowRight' ? 1 : -1;
+      if (pickC < 0) return;
+      st.n = c[pickC][1];
+      storyNode();
     } else if (g === 'yesno') {
       if (!yn) {
         if (k !== 'Enter') return;
@@ -364,7 +450,8 @@ var Games = (function () {
     drawTimer();
     var intro = {dice:'Drückt OK zum Würfeln.', tod:'', cards:'Drückt OK für die erste Karte.', never:'Drückt OK für die erste Aussage.',
       pos:'Drückt OK zum Drehen.', massage:'Drückt OK, um zu beginnen.'}[id] || 'Drückt OK, um zu beginnen.';
-    yn = null;
+    yn = null; st = null;
+    if (id === 'story') { stSel = Math.max(0, STORIES.findIndex(function (x) { return x.level === level; })); return storyList(); }
     if (id === 'week') { weekDay = (new Date().getDay() + 6) % 7; return showWeek(); }
     if (id === 'yesno') return show('Wunsch-Abgleich', 'Jeder bewertet heimlich 12 Ideen',
       'Am Ende seht ihr nur, was ihr BEIDE wollt.\nWas nur einer will, bleibt geheim.', 'OK = ' + PL[0] + ' beginnt');
@@ -379,7 +466,7 @@ var Games = (function () {
     init:function () { level = load('glevel', 1); },
     data:function () {
       return {dice:DICE, truth:TRUTH, dare:DARE, cards:CARDS, never:NEVER, positions:POS, massage:MASSAGE,
-        wwe:WWE, wyr:WYR, role:ROLE, quiz:QUIZ, deep:DEEP, yesno:YESNO, date:DATE, week:WEEK, memory:MEMORY};
+        wwe:WWE, wyr:WYR, role:ROLE, quiz:QUIZ, deep:DEEP, stories:STORIES, yesno:YESNO, date:DATE, week:WEEK, memory:MEMORY};
     },
     // content.json override: only replaces lists that pass the type checks (plain text data only)
     setContent:function (c) {
@@ -403,6 +490,7 @@ var Games = (function () {
       if (levels(c.quiz, isText)) QUIZ = c.quiz;
       if (levels(c.deep, isText)) DEEP = c.deep;
       if (levels(c.yesno, isText)) YESNO = c.yesno;
+      if (list(c.stories, validStory)) STORIES = c.stories;
       if (levels(c.memory, isText)) MEMORY = c.memory;
       if (levels(c.week, isText) && c.week.every(function (l) { return l.length === 7; })) WEEK = c.week;
       var dt = c.date || {};
@@ -418,3 +506,13 @@ var Games = (function () {
     }
   };
 })();
+
+// content.json check for an interactive story: every choice must lead to an existing node
+function validStory(x) {
+  if (!x || !isText(x.title) || [1, 2, 3].indexOf(x.level) < 0 || !x.nodes || typeof x.nodes !== 'object' || !x.nodes[x.start]) return false;
+  return Object.keys(x.nodes).every(function (k) {
+    var n = x.nodes[k];
+    return n && isText(n.t) && (!n.task || isTimed(n.task)) && Array.isArray(n.c) && n.c.length <= 2 &&
+      n.c.every(function (c) { return isPair(c) && !!x.nodes[c[1]]; });
+  });
+}

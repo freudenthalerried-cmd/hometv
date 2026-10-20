@@ -1,5 +1,5 @@
 {
- "_hilfe": "Inhalte von AbendKino. Nach dem Speichern auf GitHub sind sie in ca. 1 Minute am Fire TV (nach App-Neustart). Spiele: je 3 Stufen [Romantisch, Prickelnd, Heiß]. Karten/Massage: [Text, Sekunden]. Comedy: wie Filme. YouTube: [Name, Kanal-ID UC…]. Radio: [Name, https-Stream-Adresse]. Filme: [Name, Suchbegriff, tt=Titel/Thema oder ttd=auch Beschreibung, Mindestlänge in Sekunden].",
+ "_hilfe": "Inhalte von AbendKino. Nach dem Speichern auf GitHub sind sie in ca. 1 Minute am Fire TV (nach App-Neustart). Spiele: je 3 Stufen [Romantisch, Prickelnd, Heiß]. Karten/Massage: [Text, Sekunden]. Geschichten: Knoten mit t=Text, task=[Aufgabe, Sekunden], c=[[Wahl, nächster Knoten], …]. Comedy: wie Filme. YouTube: [Name, Kanal-ID UC…]. Radio: [Name, https-Stream-Adresse]. Filme: [Name, Suchbegriff, tt=Titel/Thema oder ttd=auch Beschreibung, Mindestlänge in Sekunden].",
  "version": 1,
  "categories": [
    ["Amateur", "amateur"],
@@ -551,6 +551,42 @@
      ]
    ]
   },
+  "stories": [
+   {"title": "Die Berghütte", "level": 1, "start": "s", "nodes": {
+     "s": {"t": "Ein verschneites Wochenende. Ihr kommt in einer kleinen Berghütte an. Draußen tobt der Sturm, drinnen knistert der Kamin.", "c": [["Zuerst ein heißes Bad", "bad"], ["Gleich vor den Kamin", "kamin"]]},
+     "bad": {"t": "Das Wasser dampft, Kerzen flackern. Einer von euch wäscht dem anderen langsam den Rücken.", "task": ["Wascht euch gegenseitig Rücken und Nacken – ganz langsam.", 120], "c": [["Gemeinsam ins Handtuch", "handtuch"], ["Liegen bleiben und reden", "reden"]]},
+     "kamin": {"t": "Ihr breitet Decken vor dem Feuer aus. Der Wein ist warm, die Stimmung auch.", "task": ["Erzählt euch, was ihr am anderen am meisten liebt.", 90], "c": [["Massage am Feuer", "massage"], ["Ein langsamer Tanz", "tanz"]]},
+     "handtuch": {"t": "Eingewickelt in ein einziges großes Handtuch steht ihr vor dem Spiegel.", "task": ["Küsst euch 30 Sekunden – ohne Hände.", 30], "c": [["Ins Bett", "bett"], ["Zurück vor den Kamin", "kamin2"]]},
+     "reden": {"t": "Ihr redet, bis das Wasser kühl wird – über früher, über Träume.", "task": ["Jeder erzählt einen Wunsch für das nächste Jahr.", 120], "c": [["Ins Bett", "bett"], ["Vor den Kamin", "kamin2"]]},
+     "massage": {"t": "Das Feuer wärmt, eure Hände auch. Einer liegt, der andere verwöhnt.", "task": ["Massage mit warmem Öl – Rücken, Schultern, Beine.", 180], "c": [["Rollen tauschen und dann ins Bett", "bett"], ["Am Feuer einschlafen", "feuer"]]},
+     "tanz": {"t": "Keine Musik, nur das Knistern des Holzes. Ihr tanzt eng umschlungen.", "task": ["Stirn an Stirn, Augen zu – tanzt eine Minute.", 60], "c": [["Ins Bett tragen lassen", "bett"], ["Weitertanzen", "feuer"]]},
+     "kamin2": {"t": "Am Ende landet ihr doch wieder vor dem Feuer, eng aneinander.", "task": ["Streichelt euch gegenseitig, ohne ein Wort zu sagen.", 90], "c": [["Ins Bett", "bett"], ["Am Feuer bleiben", "feuer"]]},
+     "bett": {"t": "Die Decke ist schwer und warm, draußen heult der Wind. Was jetzt passiert, entscheidet ihr allein.", "c": []},
+     "feuer": {"t": "Ihr schlaft aneinandergekuschelt vor dem Feuer ein. Am Morgen ist draußen alles weiß.", "c": []}
+   }},
+   {"title": "Das Hotelzimmer", "level": 2, "start": "s", "nodes": {
+     "s": {"t": "Ihr tut so, als würdet ihr euch nicht kennen. Hotelbar, später Abend. Einer sitzt schon da, der andere kommt herein.", "c": [["Ansprechen", "sprechen"], ["Nur Blicke tauschen", "blicke"]]},
+     "sprechen": {"t": "Ein Drink, ein Lächeln, ein Satz, der hängen bleibt.", "task": ["Der Neue an der Bar macht ein Kompliment – erfunden, aber ernst gemeint.", 60], "c": [["Zum Aufzug", "aufzug"], ["Noch ein Drink", "drink"]]},
+     "blicke": {"t": "Niemand sagt etwas. Nur Blicke, die länger dauern als nötig.", "task": ["Schaut euch 60 Sekunden schweigend in die Augen.", 60], "c": [["Zimmernummer zuschieben", "aufzug"], ["Hingehen und flüstern", "drink"]]},
+     "drink": {"t": "Beim zweiten Drink rückt ihr näher. Eine Hand liegt wie zufällig auf dem Knie.", "task": ["Flüstere dem anderen ins Ohr, was du dir gerade vorstellst.", 45], "c": [["Zum Aufzug", "aufzug"]]},
+     "aufzug": {"t": "Die Aufzugtür schließt sich. Zwölf Stockwerke.", "task": ["Küsst euch, bis der Aufzug oben ist – zählt langsam bis 30.", 30], "c": [["Im Zimmer: Licht an", "licht"], ["Im Zimmer: Licht aus", "dunkel"]]},
+     "licht": {"t": "Das Zimmer ist hell, das Bett riesig. Einer setzt sich, der andere bleibt stehen.", "task": ["Ein langsamer Strip – ein Kleidungsstück alle 20 Sekunden.", 120], "c": [["Weiter im Bett", "bett"], ["Weiter in der Dusche", "dusche"]]},
+     "dunkel": {"t": "Nur das Licht der Stadt fällt herein. Ihr findet euch tastend.", "task": ["Augen verbunden: nur Hände und Lippen.", 120], "c": [["Weiter im Bett", "bett"], ["Weiter in der Dusche", "dusche"]]},
+     "dusche": {"t": "Warmes Wasser, Dampf, kein Wort mehr nötig.", "c": []},
+     "bett": {"t": "Am nächsten Morgen: Zimmerservice für zwei. Wie es weitergeht, wisst ihr.", "c": []}
+   }},
+   {"title": "Der Masseur-Abend", "level": 3, "start": "s", "nodes": {
+     "s": {"t": "Heute ist einer von euch Masseur/in, der andere Kunde/Kundin. Termin um 21 Uhr, das Licht ist gedimmt.", "c": [["Klassische Massage", "klassisch"], ["Die „Spezialbehandlung“", "spezial"]]},
+     "klassisch": {"t": "Es beginnt ganz professionell. Schultern, Rücken, Nacken.", "task": ["Rückenmassage mit Öl – der Kunde liegt auf dem Bauch.", 180], "c": [["Tiefer massieren", "tiefer"], ["Umdrehen bitten", "vorne"]]},
+     "spezial": {"t": "Der Masseur verbindet dem Kunden die Augen.", "task": ["Augenbinde an: Berührungen nur mit den Fingerspitzen.", 120], "c": [["Mit Eiswürfel", "eis"], ["Mit warmem Atem", "atem"]]},
+     "tiefer": {"t": "Die Hände wandern zum unteren Rücken, zu den Oberschenkeln.", "task": ["Massiere Po und Oberschenkel – der Kunde darf nichts sagen.", 120], "c": [["Umdrehen bitten", "vorne"]]},
+     "eis": {"t": "Kalt und heiß wechseln sich ab.", "task": ["Ein Eiswürfel wandert über den Körper – der Kunde rät, wo er als Nächstes ist.", 90], "c": [["Umdrehen bitten", "vorne"]]},
+     "atem": {"t": "Gänsehaut, überall.", "task": ["Nur warmer Atem und Lippen – keine Hände.", 90], "c": [["Umdrehen bitten", "vorne"]]},
+     "vorne": {"t": "„Bitte umdrehen.“ Die Massage geht vorne weiter.", "task": ["Bauch, Brust, Innenseite der Oberschenkel – ganz langsam.", 150], "c": [["Rollen tauschen", "tausch"], ["Der Kunde übernimmt", "kontrolle"]]},
+     "tausch": {"t": "Jetzt ist der andere dran – gleiche Regeln, gleiche Zeit. Der Rest gehört euch.", "c": []},
+     "kontrolle": {"t": "Der Kunde steht auf und bestimmt ab jetzt, was passiert.", "c": []}
+   }}
+  ],
   "positions": [
     ["Löffelchen", "Beide liegen seitlich, eng aneinander – sehr nah und zärtlich."],
     ["Missionar", "Klassisch, viel Augenkontakt und Küsse."],

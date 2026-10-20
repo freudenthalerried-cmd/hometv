@@ -51,6 +51,10 @@ schaltet frei, beim Zurück zu Home wird wieder gesperrt. Die öffentliche Suche
 - **Netzkino** in „Filme“: ganze Kinofilme gratis und legal (offizieller YouTube-Kanal).
 - **Deine Apps** am Startbild: Netflix, Prime Video, Disney+, Joyn … direkt starten.
 
+## Interaktive Geschichten
+In den Paar-Spielen: die App erzählt, ihr entscheidet mit ◀ ▶, mit Aufgaben und Timer (Berghütte, Hotelzimmer, Masseur-Abend).
+Weitere Geschichten in content.json → games.stories.
+
 ## Bewerten & Ähnliche
 ☰ (Menü-Taste) auf einem Video: Abspielen · 👍 Gefällt mir · 🔎 Ähnliche · ♥ Merken · ★1–★5.
 Nach ≥ 2 Minuten Schauen fragt die App nach Sternen. Bewertungen/Likes steuern „Für dich“ und die Reihenfolge

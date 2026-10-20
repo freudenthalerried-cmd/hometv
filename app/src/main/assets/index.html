@@ -543,7 +543,7 @@ function games() {
   }), 'btn');
   var name = {}; Games.GAMES.forEach(function (x) { name[x[0]] = x[1]; });
   var grp = function (title, ids) { addRow(title, ids.map(function (id) { return [name[id], function () { Games.open(id); }]; }), 'btn'); };
-  grp('Neuer Pepp – für Paare, die sich schon lange kennen', ['yesno', 'date', 'week', 'memory', 'role', 'wyr']);
+  grp('Neuer Pepp – für Paare, die sich schon lange kennen', ['story', 'yesno', 'date', 'week', 'memory', 'role', 'wyr']);
   grp('Klassiker', ['dice', 'tod', 'cards', 'never', 'pos', 'massage']);
   grp('Reden & Nähe', ['deep', 'quiz', 'wwe']);
   msg('Alles ist freiwillig: Jede Karte darf übersprungen werden, ein „Stopp“ gilt immer.');
@@ -783,7 +783,7 @@ function voiceSearch() {
 /* Spoken or typed commands: games, random film, categories, film rows; otherwise search everywhere. */
 var GAME_WORDS = [[/würfel/, 'dice'], [/wahrheit|pflicht/, 'tod'], [/karte/, 'cards'], [/noch nie/, 'never'],
   [/stellung|roulette/, 'pos'], [/massage/, 'massage'], [/wer würde|eher/, 'wwe'], [/lieber/, 'wyr'], [/rolle/, 'role'],
-  [/quiz/, 'quiz'], [/wunsch|abgleich/, 'yesno'], [/date/, 'date'], [/challenge|woche/, 'week'], [/weißt du noch|erinnerung/, 'memory'],
+  [/quiz/, 'quiz'], [/geschichte|interaktiv|story/, 'story'], [/wunsch|abgleich/, 'yesno'], [/date/, 'date'], [/challenge|woche/, 'week'], [/weißt du noch|erinnerung/, 'memory'],
   [/nähe|tiefe|fragen/, 'deep']];
 // word list instead of \b: \b treats umlauts as word breaks ("komödie" would lose "die")
 var FILLER = {zeig:1, zeige:1, mir:1, uns:1, spiel:1, spiele:1, start:1, starte:1, such:1, suche:1, nach:1, bitte:1, ein:1, eine:1,
