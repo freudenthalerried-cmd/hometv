@@ -470,7 +470,7 @@ window.onMenu = function () {
 var lastPlayed = null;
 function slim(v) {
   return {id:v.id, title:v.title, keywords:v.keywords, views:v.views, rate:v.rate, length_sec:v.length_sec,
-    embed:v.embed, urls:v.urls, src:v.src, chId:v.chId, channel:v.channel, topic:v.topic, desc:v.desc, date:v.date, default_thumb:v.default_thumb, thumbs:(v.thumbs || []).slice(0, 8)};
+    embed:v.embed, url:v.url, urls:v.urls, src:v.src, chId:v.chId, channel:v.channel, topic:v.topic, desc:v.desc, date:v.date, default_thumb:v.default_thumb, thumbs:(v.thumbs || []).slice(0, 8)};
 }
 function play(v) {
   stopRadio();
@@ -482,7 +482,28 @@ function play(v) {
   var pos = P.watched[v.id] || 0, start = pos > 60 && pos < v.length_sec - 120 ? pos : 0;
   if (start) toast('Weiter bei ' + Math.floor(start / 60) + ':' + ('0' + start % 60).slice(-2));
   if (v.src === 'mv' && A.playDirect) return A.playDirect(JSON.stringify(v.urls || [v.embed]), v.id, start);
+  if ((v.src || 'ep') === 'ep' && A.playDirect) return epDirect(v, start);
   A.play(v.embed || ('https://www.eporner.com/embed/' + v.id + '/'), v.id, start);
+}
+// Eporner: fetch the MP4 files directly (best quality first, own player = sound on, no foreign player/ads).
+// The video page carries a hash that the site's own player turns into the source list (same as yt-dlp does).
+function epDirect(v, start) {
+  toast('Lade beste Qualität …');
+  var embed = function () { A.play(v.embed || ('https://www.eporner.com/embed/' + v.id + '/'), v.id, start); };
+  http(v.url || ('https://www.eporner.com/video-' + v.id + '/')).then(function (html) {
+    var m = /hash\s*[:=]\s*["']([\da-f]{32})["']/.exec(html);
+    if (!m) throw 'nohash';
+    var h = [0, 8, 16, 24].map(function (i) { return parseInt(m[1].substr(i, 8), 16).toString(36); }).join('');
+    return http('https://www.eporner.com/xhr/video/' + encodeURIComponent(v.id) + '?hash=' + h + '&device=generic&domain=www.eporner.com&fallback=false');
+  }).then(function (t) {
+    var mp4 = (JSON.parse(t).sources || {}).mp4 || {};
+    var urls = Object.keys(mp4).sort(function (a, b) { return (parseInt(b) || 0) - (parseInt(a) || 0); })
+      .map(function (k) { return mp4[k] && mp4[k].src; }).filter(function (u) { return /^https?:\/\//.test(u || ''); });
+    if (!urls.length) throw 'nosrc';
+    var q = parseInt(Object.keys(mp4).sort(function (a, b) { return (parseInt(b) || 0) - (parseInt(a) || 0); })[0]) || 0;
+    if (q) toast('Qualität: ' + q + 'p');
+    A.playDirect(JSON.stringify(urls.slice(0, 4)), v.id, start);
+  }).catch(embed);
 }
 // from the player watchdog: did the video really start?
 window.onPlayResult = function (id, ok, info) {

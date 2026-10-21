@@ -57,7 +57,7 @@ public class MainActivity extends Activity {
             "cdnjs.cloudflare.com", "ajax.googleapis.com", "jsdelivr.net",
             "youtube-nocookie.com", "youtube.com", "ytimg.com", "googlevideo.com", "ggpht.com", "gstatic.com",
             "akamaihd.net", "akamaized.net", "zdf.de", "ard.de", "ardmediathek.de", "arte.tv", "3sat.de", "orf.at", "srf.ch"};
-    private static final Pattern MEDIA = Pattern.compile("\\.(mp4|m3u8|ts|m4s|webm)(\\?|$)");
+    private static final Pattern MEDIA = Pattern.compile("\\.(mp4|m3u8|ts|m4s|webm|m4a|aac|mp3)(\\?|$)");
 
     private FrameLayout root;
     private WebView ui;
@@ -167,6 +167,9 @@ public class MainActivity extends Activity {
         player = new WebView(this);
         setup(player);
         player.getSettings().setSupportMultipleWindows(true); // popups go to onCreateWindow -> dropped
+        // report the full TV width to the page so adaptive players choose a higher quality
+        player.getSettings().setUseWideViewPort(true);
+        player.getSettings().setLoadWithOverviewMode(true);
         player.getSettings().setJavaScriptCanOpenWindowsAutomatically(false);
         player.setWebChromeClient(new WebChromeClient() {
             @Override

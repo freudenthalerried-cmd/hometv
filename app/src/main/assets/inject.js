@@ -37,6 +37,19 @@
 
   // Start playback automatically and pick the highest quality the player offers.
   var started = false, userPaused = false, clicks = 0;
+  // players often start muted (autoplay) and mute again later: keep the sound on for the first 30 s
+  var UNMUTE = '.vjs-mute-control.vjs-vol-0,[class*="unmute"],[class*="Unmute"],.mgp_volume.mgp_muted,[aria-label*="nmute"],' +
+    '[title*="nmute"],[title*="Ton an"],.ytp-unmute';
+  var soundTicks = 0;
+  function keepSound() {
+    var e = v();
+    if (e && (e.muted || e.volume < 0.05)) {
+      var u = document.querySelector(UNMUTE);
+      if (u) u.click();
+      e.muted = false; e.volume = 1;
+    }
+  }
+  var sv = setInterval(function () { keepSound(); if (++soundTicks > 60) clearInterval(sv); }, 500);
   var PLAY = '.ytp-large-play-button,.vjs-big-play-button,.mgp_playIcon,.mgp_bigPlay,[class*="bigPlay"],[class*="big-play"],' +
     '[class*="play-button"],[class*="playButton"],[class*="playbtn"]';
   var iv = setInterval(function () {
@@ -56,15 +69,19 @@
       window.__ak_state = 'playing';
       if (window.__start > 0) { e.currentTime = window.__start; window.__start = 0; } // continue watching
       show('▶ ' + fmt(e.currentTime) + ' / ' + fmt(e.duration));
-      var q = [].slice.call(document.querySelectorAll('.vjs-menu-item,[data-quality],[class*="quality"] li,[class*="Quality"] li'))
-        .filter(function (i) { return /2160|1440|1080/.test(i.textContent); });
-      if (q.length) q[0].click();
+      // pick the highest quality the player's menu offers
+      var q = [].slice.call(document.querySelectorAll('.vjs-menu-item,[data-quality],[class*="quality"] li,[class*="Quality"] li,.mgp_qualitiesMenu li,[data-res]'))
+        .map(function (i) { return {el:i, q:parseInt((i.getAttribute('data-quality') || i.getAttribute('data-res') || i.textContent).replace(/\D+/g, '')) || 0}; })
+        .filter(function (x) { return x.q >= 360 && x.q <= 2160; })
+        .sort(function (a, b) { return b.q - a.q; });
+      if (q.length) { q[0].el.click(); show('Qualität: ' + q[0].q + 'p'); }
     }
     if (started) clearInterval(iv);
   }, 500);
 
   window.__ctl = function (c) {
     var e = v(); if (!e) return;
+    keepSound();
     var d = e.duration || 1e9;
     switch (c) {
       case 'toggle':
