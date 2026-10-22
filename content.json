@@ -1,5 +1,5 @@
 {
- "_hilfe": "Inhalte von AbendKino. Nach dem Speichern auf GitHub sind sie in ca. 1 Minute am Fire TV (nach App-Neustart). Spiele: je 3 Stufen [Romantisch, Prickelnd, Heiß]. Karten/Massage: [Text, Sekunden]. Geschichten: Knoten mit t=Text, task=[Aufgabe, Sekunden], c=[[Wahl, nächster Knoten], …]. Comedy: wie Filme. YouTube: [Name, Kanal-ID UC…]. Musik: [Gruppe, [[Name, https-Stream], …]]. Radio: [Name, https-Stream-Adresse]. Filme: [Name, Suchbegriff, tt=Titel/Thema oder ttd=auch Beschreibung, Mindestlänge in Sekunden].",
+ "_hilfe": "Inhalte von AbendKino. Nach dem Speichern auf GitHub sind sie in ca. 1 Minute am Fire TV (nach App-Neustart). Spiele: je 3 Stufen [Romantisch, Prickelnd, Heiß]. Karten/Massage: [Text, Sekunden]. Geschichten: Knoten mit t=Text, task=[Aufgabe, Sekunden], c=[[Wahl, nächster Knoten], …]. Comedy: wie Filme. YouTube: [Name, Kanal-ID UC…]. Musik: [Gruppe, [[Name, https-Stream], …]]. Radio: [Name, https-Stream-Adresse]. Filme: [Name, Suchbegriff, tt=Titel/Thema oder ttd=auch Beschreibung, Mindestlänge in Sekunden, optional Sender z. B. arte]. YouTube-Rubrik: [Name, Kanal-ID]. Entspannung: wie Filme.",
  "version": 1,
  "categories": [
    ["Amateur", "amateur"],
@@ -44,6 +44,15 @@
    ["Liebe & Romantik", "liebesfilm", "ttd", 4800],
    ["Drama", "drama", "ttd", 4800],
    ["Kino bei arte", "arte kino", "ttd", 4800],
+   ["Terra X", "terra x", "tt", 2400],
+   ["Doku bei arte", "dokumentation", "ttd", 2700, "arte"],
+   ["ZDFinfo Doku", "zdfinfo", "tt", 2400],
+   ["Universum", "universum", "tt", 2400],
+   ["Expeditionen ins Tierreich", "expeditionen ins tierreich", "tt", 2400],
+   ["Geschichte", "geschichte", "tt", 2400],
+   ["Wissenschaft", "wissenschaft", "ttd", 2400],
+   ["Reportagen", "reportage", "tt", 2400],
+   ["Dokumentarfilme", "dokumentarfilm", "ttd", 3600],
    ["Dokumentationen", "dokumentation", "tt", 2700]
  ],
  "comedy": [
@@ -57,6 +66,20 @@
  ],
  "youtube": [
    ["heute-show auf YouTube", "UCFqcNI0NaAA21NS9W3ExCRg"]
+ ],
+ "youtube_rubrik": [
+   ["Terra X Natur & Geschichte", "UCA3mpqm67CpJ13YfA8qAnow"],
+   ["ZDFinfo Dokus & Reportagen", "UC7FeuS5wwfSR9IwOPkBV7SQ"],
+   ["MDR DOK", "UCFxgCHRLXmaW3YUyDsikoSw"],
+   ["Netzkino – ganze Kinofilme", "UCGkHFrwE8KEuOHPVsIOskAg"],
+   ["ZDF heute-show", "UCFqcNI0NaAA21NS9W3ExCRg"]
+ ],
+ "entspannung": [
+   ["Natur pur", "natur", "ttd", 2400],
+   ["Universum", "universum", "tt", 2400],
+   ["Expeditionen ins Tierreich", "expeditionen ins tierreich", "tt", 2400],
+   ["Berge & Landschaften", "berge", "ttd", 2400],
+   ["Meer & Küsten", "meer", "ttd", 2400]
  ],
  "music": [
    ["Romantisch & Lounge", [["SomaFM Lush", "https://ice1.somafm.com/lush-128-mp3"], ["Radio Swiss Jazz", "https://stream.srg-ssr.ch/m/rsj/mp3_128"], ["SomaFM Secret Agent", "https://ice1.somafm.com/secretagent-128-mp3"]]],

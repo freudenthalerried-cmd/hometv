@@ -61,9 +61,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 #gsub{font-size:2.75vh;color:#999}
 #ghelp{position:absolute;bottom:5vh;font-size:2.75vh;color:#888}
 #lock{position:fixed;top:0;left:0;right:0;bottom:0;z-index:30;background:#0b0b10;display:none;flex-direction:column;align-items:center;justify-content:center;gap:3vh;font-size:4.25vh}
-#fire{position:fixed;top:0;left:0;right:0;bottom:0;z-index:7;background:#080301;display:none}
-#firec{width:100vw;height:100vh;display:block}
-#finfo{position:absolute;left:0;right:0;bottom:5vh;text-align:center;font-size:2.75vh;color:#c96;opacity:.8}
 #act{position:fixed;top:0;left:0;right:0;bottom:0;z-index:26;background:#000b;display:none;align-items:center;justify-content:center}
 #act .box{max-width:70vw;padding:4vh 3vw;border-radius:2vh;background:#1b1b24;text-align:center}
 #act h1{font-size:4.25vh;margin-bottom:3vh;max-height:9vh;overflow:hidden}
@@ -118,7 +115,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 <div id="lock"><div id="ltitle"></div><div id="ldots"></div><div style="font-size:2.75vh;color:#888">4 Pfeiltasten drücken · Zurück = Beenden</div></div>
 <div id="upd"><div class="box"><h1 id="uh"></h1><p id="un"></p><div class="k">OK = jetzt aktualisieren · Zurück = später</div></div></div>
 <script src="games.js"></script>
-<div id="fire"><canvas id="firec"></canvas><div id="finfo"></div></div>
 <div id="act"><div class="box"><h1 id="at"></h1><div id="ar"></div><div class="k" id="ak"></div></div></div>
 <script src="home.js"></script>
 <script src="rate.js"></script>
@@ -297,7 +293,7 @@ function renderNav() {
 }
 function cardHTML(v) {
   var w = P.watched[v.id], pct = w ? Math.min(100, w / v.length_sec * 100) : 0;
-  if (v.src === 'mv') return '<div class="card f mv" style="background:linear-gradient(135deg,' + (MV_COLORS[v.channel] || '#444') + ',#111)">' +
+  if (v.src === 'mv') return '<div class="card f mv" style="background:' + (v.default_thumb.src ? thumbBg(v).replace(/"/g, "'") : 'linear-gradient(135deg,' + (MV_COLORS[v.channel] || '#444') + ',#111)') + '">' +
     '<span class="ch">' + esc(v.channel) + '</span><div class="mt">' + esc(v.title) + '</div><span class="d">' + dur(v.length_sec) + '</span>' +
     (isFav(v.id) ? '<span class="fav">♥</span>' : '') + badge(v) + (pct ? '<span class="w" style="width:' + pct + '%"></span>' : '') + '</div>';
   return '<div class="card f"><img src="' + esc(v.default_thumb && v.default_thumb.src || '') + '">' +
@@ -346,7 +342,7 @@ function addRow(title, list, kind, spec) {
     else bindCard(e, x);
   });
   var seen = {};
-  if (!kind) list.forEach(function (v) { seen[v.id] = 1; });
+  if (!kind) { list.forEach(function (v) { seen[v.id] = 1; }); wantThumbs(list.slice(0, 6)); }
   lines.push({el:r, strip:r.querySelector('.strip'), items:items, i:0, more:moreFn(spec), page:1, seen:seen});
 }
 function begin() {
@@ -407,6 +403,7 @@ function focus() {
       ln.strip.style.transform = 'translateX(' + (-Math.min(off, max)) + 'px)';
     }
   }
+  if (e._v && e._v.src === 'mv') wantThumbs(ln.items.slice(ln.i, ln.i + 7).map(function (x) { return x._v; }));
   clearTimeout(focus.dwell);
   if (e._v && !e._v._dwelt) focus.dwell = setTimeout(function (v) {
     v._dwelt = true;
@@ -419,7 +416,6 @@ document.addEventListener('keydown', function (ev) {
   if (lockOn) { lockKey(k); ev.preventDefault(); return; }
   if (gateOn) { gateKey(k); ev.preventDefault(); return; }
   if (actOn) { if (/^Arrow|Enter/.test(k)) actKey(k); ev.preventDefault(); return; }
-  if (fireOn) { fireKey(k); ev.preventDefault(); return; }
   if (updOn) { if (k === 'Enter') { hideUpd(); A.update(UPD + 'AbendKino.apk'); } ev.preventDefault(); return; }
   if (Games.active()) { if (/^Arrow|Enter/.test(k)) { Games.key(k); ev.preventDefault(); } return; }
   if (!ln) return;
@@ -442,7 +438,6 @@ window.onBack = function () {
   if (lockOn) return false;
   if (gateOn) { hideGate(); return true; }
   if (actOn) { closeAct(); return true; }
-  if (fireOn) { closeFire(); return true; }
   if (updOn) { hideUpd(); return true; }
   if (Games.active()) { Games.close(); return true; }
   var ln = lines[L];
@@ -533,7 +528,7 @@ function go(v) {
   if (v === 'priv') v = 'home';
   if (v === 'rand') return randomPlay();
   document.body.classList.toggle('dashv', v === 'dash');
-  view = v; ({dash:dash, comedy:comedy, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
+  view = v; ({dash:dash, yt:ytView, relax:relax, comedy:comedy, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
 }
 function randomPlay() {
   toast('Suche einen Film für dich …');
@@ -570,8 +565,45 @@ var MV_ROWS = [
   ['Neue Spielfilme', {q:'spielfilm', f:TT}], ['Filme im Ersten', {q:'filme im ersten', f:TT}],
   ['Fernsehfilm der Woche', {q:'fernsehfilm', f:TT}], ['Tatort', {q:'tatort', f:TT}], ['Polizeiruf 110', {q:'polizeiruf', f:TT}],
   ['Komödien', {q:'komödie', f:TTD}], ['Thriller & Krimi', {q:'thriller', f:TTD}], ['Liebe & Romantik', {q:'liebesfilm', f:TTD}],
-  ['Drama', {q:'drama', f:TTD}], ['Kino bei arte', {q:'arte kino', f:TTD}], ['Dokumentationen', {q:'dokumentation', f:TT, min:2700}]
+  ['Drama', {q:'drama', f:TTD}], ['Kino bei arte', {q:'arte kino', f:TTD}],
+  ['Terra X', {q:'terra x', f:TT, min:2400}], ['Doku bei arte', {q:'dokumentation', f:TTD, min:2700, ch:'arte'}],
+  ['ZDFinfo Doku', {q:'zdfinfo', f:TT, min:2400}], ['Universum', {q:'universum', f:TT, min:2400}],
+  ['Expeditionen ins Tierreich', {q:'expeditionen ins tierreich', f:TT, min:2400}], ['Geschichte', {q:'geschichte', f:TT, min:2400}],
+  ['Wissenschaft', {q:'wissenschaft', f:TTD, min:2400}], ['Reportagen', {q:'reportage', f:TT, min:2400}],
+  ['Dokumentarfilme', {q:'dokumentarfilm', f:TTD, min:3600}], ['Dokumentationen', {q:'dokumentation', f:TT, min:2700}]
 ];
+var thumbCache = load('thumbs', {}), thumbQ = [], thumbBusy = 0, thumbSaveT = 0;
+function wantThumbs(list) {
+  list.forEach(function (v) {
+    if (!v || v.src !== 'mv' || !v.page || v.default_thumb.src || v._tq) return;
+    if (thumbCache[v.id]) { v.default_thumb.src = thumbCache[v.id]; paintThumb(v); return; }
+    v._tq = true; thumbQ.push(v);
+  });
+  pumpThumbs();
+}
+function pumpThumbs() {
+  while (thumbBusy < 3 && thumbQ.length) (function (v) {
+    thumbBusy++;
+    http(v.page).then(function (h) {
+      var m = /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i.exec(h) ||
+              /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i.exec(h);
+      var u = m ? m[1].replace(/&amp;/g, '&') : '';
+      if (!/^https:\/\//.test(u)) return;
+      v.default_thumb.src = thumbCache[v.id] = u;
+      var k = Object.keys(thumbCache); if (k.length > 2000) delete thumbCache[k[0]];
+      clearTimeout(thumbSaveT); thumbSaveT = setTimeout(function () { save('thumbs', thumbCache); }, 3000);
+      paintThumb(v);
+    }).catch(function () { }).then(function () { thumbBusy--; pumpThumbs(); });
+  })(thumbQ.shift());
+}
+function thumbBg(v) {
+  return 'linear-gradient(0deg,rgba(0,0,0,.9) 0%,rgba(0,0,0,.15) 70%),url("' + v.default_thumb.src + '") center/cover';
+}
+function paintThumb(v) {
+  [].slice.call(document.querySelectorAll('.card.mv')).forEach(function (e) { if (e._v && e._v.id === v.id) e.style.background = thumbBg(v); });
+  var ln = lines[L], cur = ln && ln.items[ln.i];
+  if (cur && cur._v && cur._v.id === v.id) hero(v);
+}
 function mvPost(body) {
   return new Promise(function (res, rej) {
     var id = 'c' + (++cbn);
@@ -589,16 +621,26 @@ function mvItem(r) {
   // servers that work here first, known-bad ones last
   urls = urls.filter(function (u) { return !patBad(u); }).concat(urls.filter(patBad));
   var url = urls[0] || '';
-  return {id:'mv:' + (r.id || url), src:'mv', urls:urls.slice(0, 6), channel:r.channel, title:r.title, topic:r.topic, desc:r.description || '',
+  return {id:'mv:' + (r.id || url), src:'mv', hd:!!r.url_video_hd, page:/^https:\/\//.test(r.url_website || '') ? r.url_website : '', urls:urls.slice(0, 6), channel:r.channel, title:r.title, topic:r.topic, desc:r.description || '',
     date:r.timestamp, length_sec:+r.duration || 0, embed:url, keywords:'', views:0, rate:0, default_thumb:{src:''}, thumbs:[]};
 }
+var MV_BAD = /(gebärdensprache|\(dgs\)|\(ögs\)|audiodeskription|hörfassung|\(ad\)|originalfassung|originalversion|\bomu\b|\(ov\)|englische fassung|english version|version originale|trailer|teaser|vorschau|making[- ]of|klarer sprache|leichter sprache)/i;
+function mvGood(v) {
+  if (/^ARTE\.(?!DE)/i.test(String(v.channel || ''))) return false; // only the German arte version
+  return !MV_BAD.test(v.title + ' ' + (v.topic || ''));
+}
 function movies(o) {
-  var size = 30;
-  return mvPost({queries:[{fields:o.f || TT, query:o.q}], sortBy:'timestamp', sortOrder:'desc', future:false,
+  var size = 30, q = [{fields:o.f || TT, query:o.q}];
+  if (o.ch) q.push({fields:['channel'], query:o.ch});
+  return mvPost({queries:q, sortBy:'timestamp', sortOrder:'desc', future:false,
       offset:((o.page || 1) - 1) * size, size:size, duration_min:o.min || 4800}) // full length: 80+ minutes
-    .then(function (t) { return uniq((JSON.parse(t).result.results || []).map(mvItem).filter(function (v) {
-      return v.embed && !P.bad[v.id] && !v.urls.every(patBad); // skip films only on servers that never work here
-    })); })
+    .then(function (t) {
+      var l = (JSON.parse(t).result.results || []).map(mvItem).filter(function (v) {
+        return v.embed && mvGood(v) && !P.bad[v.id] && !v.urls.every(patBad); // skip films only on servers that never work here
+      });
+      l.sort(function (a, b) { return (b.hd ? 1 : 0) - (a.hd ? 1 : 0); }); // the HD copy wins when a film comes twice
+      return uniq(l).sort(function (a, b) { return (b.date || 0) - (a.date || 0); });
+    })
     .then(playable)
     .catch(function () { return []; });
 }
@@ -668,8 +710,8 @@ function isText(x) { return typeof x === 'string' && x.length > 0 && x.length <=
 function isTimed(x) { return Array.isArray(x) && x.length === 2 && isText(x[0]) && typeof x[1] === 'number' && x[1] >= 0 && x[1] <= 3600; }
 function isPair(x) { return Array.isArray(x) && x.length === 2 && isText(x[0]) && isText(x[1]); }
 function isRow(x) {
-  return Array.isArray(x) && x.length === 4 && isText(x[0]) && isText(x[1]) && (x[2] === 'tt' || x[2] === 'ttd') &&
-    typeof x[3] === 'number' && x[3] >= 0 && x[3] <= 20000;
+  return Array.isArray(x) && (x.length === 4 || (x.length === 5 && isText(x[4]))) && isText(x[0]) && isText(x[1]) &&
+    (x[2] === 'tt' || x[2] === 'ttd') && typeof x[3] === 'number' && x[3] >= 0 && x[3] <= 20000;
 }
 function list(a, ok) { return Array.isArray(a) && a.length > 0 && a.length <= 500 && a.every(ok); }
 function levels(a, ok) { return Array.isArray(a) && a.length === 3 && a.every(function (l) { return list(l, ok); }); }
@@ -677,7 +719,9 @@ var contentVer = 0;
 function applyContent(c) {
   if (!c || typeof c !== 'object') return false;
   if (list(c.categories, isPair)) CATS = c.categories;
-  if (list(c.filme, isRow)) MV_ROWS = c.filme.map(function (r) { return [r[0], {q:r[1], f:r[2] === 'ttd' ? TTD : TT, min:r[3]}]; });
+  if (list(c.filme, isRow)) MV_ROWS = c.filme.map(function (r) { return [r[0], {q:r[1], f:r[2] === 'ttd' ? TTD : TT, min:r[3], ch:r[4]}]; });
+  if (list(c.youtube_rubrik, function (r) { return isPair(r) && /^UC[\w-]{22}$/.test(r[1]); })) YT_TUBE = c.youtube_rubrik;
+  if (list(c.entspannung, isRow)) RELAX = c.entspannung;
   if (list(c.comedy, isRow)) COMEDY_MV = c.comedy;
   if (list(c.youtube, function (r) { return isPair(r) && /^UC[\w-]{22}$/.test(r[1]); })) YT_COMEDY = c.youtube;
   if (list(c.music, function (g) {
@@ -813,7 +857,8 @@ function doCommand(text) {
     var cl = load('cams', []), ci = cl.findIndex(function (c) { return q.indexOf(c.name.toLowerCase()) >= 0; });
     return ci >= 0 ? openCam(ci) : go('cams');
   }
-  if (/kamin|feuer/.test(q)) return openFire();
+  if (/kamin|feuer|natur|entspann/.test(q)) return go('relax');
+  if (/youtube/.test(q)) return go('yt');
   if (/radio|sender|musik|jazz|lounge|klassik/.test(q) || allStations().some(function (st) { return q === st[0].toLowerCase(); })) {
     var st = allStations().filter(function (x) { return q.indexOf(x[0].toLowerCase()) >= 0; })[0];
     if (st) playRadio(st);
