@@ -191,17 +191,91 @@ function wantAdultCheck(list) {
   });
   pumpAdult();
 }
+/* Second stage, on this device: the video file itself must answer (same connection that later plays it).
+   File-level "no" only counts once at least one file said "yes" - otherwise the site may just block our plain
+   request (e.g. needs a cookie) and we would wrongly hide everything. */
+var fileOkSeen = false, filePending = [], fileFails = 0, fileCheckOn = true, testStats = null;
+function mediaUrls(h) {
+  var out = [], re = /"videoUrl"\s*:\s*"([^"]+)"(?:[^}]*?"quality"\s*:\s*"?(\d*))?/g, m;
+  while ((m = re.exec(h))) out.push([m[1].replace(/\\\//g, '/'), +m[2] || 0]);
+  return out.sort(function (a, b) { return b[1] - a[1]; }).map(function (x) { return x[0]; }).filter(function (u) { return /^https:\/\//.test(u); });
+}
+function checkOne(u) {
+  if (!A.check) return Promise.resolve(true);
+  return new Promise(function (res) {
+    var id = 'c' + (++cbn);
+    cbs[id] = function (ok, body) { var r = []; try { r = JSON.parse(body); } catch (e) { } res(r[0] === true); };
+    A.check(JSON.stringify([u]), id);
+  });
+}
+function fileTest(h) {
+  var u = mediaUrls(h), direct = u.filter(function (x) { return !/get_media/.test(x); }), gm = u.filter(function (x) { return /get_media/.test(x); })[0];
+  if (direct.length) return checkOne(direct[0]);
+  if (gm) return http(gm).then(function (t) {
+    var l = JSON.parse(t); l = (Array.isArray(l) ? l : []).filter(function (x) { return x.videoUrl; });
+    return l.length ? checkOne(l.sort(function (a, b) { return (+b.quality || 0) - (+a.quality || 0); })[0].videoUrl) : null;
+  }).catch(function () { return null; });
+  return Promise.resolve(null); // nothing to test: keep it
+}
+function markAdult(v, ok) {
+  adultOk[v.id] = [ok, Date.now()];
+  var k = Object.keys(adultOk); if (k.length > 4000) delete adultOk[k[0]];
+  save('adultOk', adultOk);
+  if (testStats && v._test) { testStats.n++; testStats[ok ? 'ok' : 'bad']++; testStats.src[v.src] = testStats.src[v.src] || [0, 0]; testStats.src[v.src][ok ? 0 : 1]++; }
+  if (!ok) { P.bad[v.id] = 1; save('profile', P); dropCard(v.id); }
+}
 function pumpAdult() {
   while (adultBusy < 3 && adultQ.length) (function (v) {
     adultBusy++;
     http(v.embed).then(function (h) {
-      var good = /"videoUrl"\s*:\s*"https?:/.test(h) || /setVideo(Url|HLS)/.test(h), bad = !good && ADULT_BAD.test(h);
-      adultOk[v.id] = [!bad, Date.now()];
-      var k = Object.keys(adultOk); if (k.length > 4000) delete adultOk[k[0]];
-      save('adultOk', adultOk);
-      if (bad) { P.bad[v.id] = 1; save('profile', P); dropCard(v.id); }
-    }).catch(function () { }).then(function () { adultBusy--; pumpAdult(); });
+      var good = /"videoUrl"\s*:\s*"https?:/.test(h) || /setVideo(Url|HLS)/.test(h);
+      if (!good && ADULT_BAD.test(h)) return markAdult(v, false);
+      if (!fileCheckOn) return markAdult(v, true);
+      return fileTest(h).then(function (r) {
+        if (r === null || r === true) {
+          if (r) { fileOkSeen = true; fileFails = 0; filePending.forEach(function (x) { markAdult(x, false); }); filePending = []; }
+          return markAdult(v, true);
+        }
+        if (fileOkSeen) return markAdult(v, false);
+        filePending.push(v);
+        if (++fileFails >= 6) { fileCheckOn = false; filePending.forEach(function (x) { markAdult(x, true); }); filePending = []; } // check not usable here
+      });
+    }).catch(function () { }).then(function () {
+      adultBusy--; pumpAdult();
+      var t = testStats;
+      if (t && t.n >= t.total && !t.saved) { t.saved = 1; save('lastTest', [Date.now(), t.ok, t.bad, t.src]); save('cache_home', null); }
+      if (t && view === 'selftest') drawTest();
+    });
   })(adultQ.shift());
+}
+/* Selbsttest (Einstellungen): test the first page of every category and show what works per source */
+function selfTest() {
+  begin(); msg('Selbsttest läuft – lade alle Kategorien …'); finish();
+  runTest();
+}
+// also runs by itself once a day in the background when the private area is opened
+function runTest() {
+  if (testStats && testStats.n < testStats.total) return; // already running
+  testStats = {n:0, ok:0, bad:0, src:{}, total:1e9};
+  var all = [], seenT = {};
+  CATS.reduce(function (p, c) {
+    return p.then(function () { return api({query:c[1], order:'top-rated'}).then(function (l) { l.forEach(function (v) { if (!seenT[v.id]) { seenT[v.id] = 1; all.push(v); } }); }); });
+  }, Promise.resolve()).then(function () {
+    var todo = all.filter(function (v) { var c = adultOk[v.id]; return !c || Date.now() - c[1] > 864e5; });
+    testStats.total = todo.length; testStats.cached = all.length - todo.length;
+    if (!todo.length) { testStats.saved = 1; save('lastTest', [Date.now(), 0, 0, {}]); }
+    todo.forEach(function (v) { v._ck = v._test = true; adultQ.push(v); });
+    pumpAdult(); drawTest();
+  });
+}
+function drawTest() {
+  var t = testStats; if (!t || view !== 'selftest') return;
+  begin();
+  var done = t.n >= t.total;
+  msg((done ? '✔ Selbsttest fertig' : '⏳ Selbsttest läuft …') + ' – geprüft ' + t.n + ' von ' + t.total + ' (dazu ' + (t.cached || 0) + ' schon heute geprüft)');
+  msg('✓ funktionieren: ' + t.ok + '   ✗ ausgeblendet: ' + t.bad + (fileCheckOn ? '' : '   (Datei-Test auf diesem Gerät nicht möglich – nur Seiten-Test)'));
+  Object.keys(t.src).forEach(function (k) { msg((SRC[k] || {name:k}).name + ': ' + t.src[k][0] + ' ✓  ' + t.src[k][1] + ' ✗'); });
+  finish();
 }
 // ☰ → "Geht nicht": hide it, count it for the source statistics
 function reportBad(v) {
@@ -616,7 +690,7 @@ function go(v) {
   if (v === 'priv') v = 'home';
   if (v === 'rand') return randomPlay();
   document.body.classList.toggle('dashv', v === 'dash');
-  view = v; ({dash:dash, news:news, fav:favs, learn:learnView, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
+  view = v; ({selftest:selfTest, dash:dash, news:news, fav:favs, learn:learnView, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
 }
 function randomPlay() {
   toast('Suche einen Film für dich …');
@@ -913,6 +987,8 @@ function drawRows(rows) {
   finish();
 }
 function home() {
+  var lt = load('lastTest', null);
+  if (!lt || Date.now() - lt[0] > 864e5) setTimeout(runTest, 8000);
   var cache = load('cache_home', null);
   moved = false;
   if (cache && cache.length) drawRows(cache); else { begin(); msg('Lade die besten Filme …'); finish(); }
@@ -1107,6 +1183,9 @@ function settings() {
     }];
   }), 'btn');
   var sum = load('srcSum', {}), fb = load('fbLog', []);
+  var lt = load('lastTest', null);
+  addRow('Selbsttest: prüft alle Videos auf diesem Gerät und blendet nicht funktionierende aus' + (lt ? ' · zuletzt ' + new Date(lt[0]).toLocaleDateString('de-AT') + ': ' + lt[1] + ' ✓ ' + lt[2] + ' ✗' : ''),
+    [['🧪 Selbsttest starten', function () { go('selftest'); }]], 'btn');
   addRow('Quellen-Statistik (läuft ✓ / geht nicht ✗) – ☰ „Geht nicht“ zählt mit', Object.keys(SRC).map(function (k) {
     var x = sum[k] || [0, 0]; return [SRC[k].name + '  ' + x[0] + ' ✓  ' + x[1] + ' ✗' + (srcOn[k] === false ? ' (aus)' : ''), function () { }];
   }).concat(fb.length ? [['Gemeldet: ' + fb.length + ' (zuletzt: ' + String(fb[0][2]).slice(0, 30) + ')', function () { }]] : []), 'btn');

@@ -4,7 +4,7 @@
 var unlocked = false;
 var PUB_TABS = [['dash','Home'],['fav','★ Favoriten'],['movies','Filme'],['news','News'],['yt','YouTube'],['learn','Lernen'],['search','🎤 Suche'],['priv','Privat'],['set','⚙']];
 var PRIV_TABS = [['dash','← Home'],['home','Für dich'],['rand','Zufall'],['cats','Kategorien'],['search','🎤 Suche'],['mine','Liste'],['games','Spiele'],['set','⚙']];
-var PRIV_VIEWS = {priv:1, home:1, rand:1, cats:1, cat:1, mine:1, games:1};
+var PRIV_VIEWS = {priv:1, selftest:1, home:1, rand:1, cats:1, cat:1, mine:1, games:1};
 
 /* ---------- decoy password gate ---------- */
 var gateOn = false, gateTarget = 'home', gateClicks = 0, gateT = null;

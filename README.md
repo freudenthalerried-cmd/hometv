@@ -58,7 +58,7 @@ Sendungen privater Sender kommen über die YouTube-Suche am Gerät – nur Video
 **🎓 Lernen**: planet schule, alpha Lernen, Quarks, Lesch & Co, nano, Planet Wissen, Wissen macht Ah!, simpleclub, MrWissen2go, Kurzgesagt.
 
 ## Player
-Privat-Videos werden vorab geprüft (gelöscht, privat, gesperrt, Kopierschutz → ausgeblendet). Startet eines nicht, kommt nach max. ~20 s automatisch das nächste der Reihe. ☰ → „⚠ Geht nicht“ meldet ein Video; Einstellungen zeigen die Quellen-Statistik.
+Privat-Videos werden vorab geprüft (gelöscht, privat, gesperrt, Kopierschutz → ausgeblendet). Startet eines nicht, kommt nach max. ~20 s automatisch das nächste der Reihe. ☰ → „⚠ Geht nicht“ meldet ein Video; Einstellungen zeigen die Quellen-Statistik. Der Selbsttest (Einstellungen, täglich auch automatisch) prüft jede Kategorie bis zur Videodatei – direkt am Fire TV.
 Startet sofort; oben rechts steht immer, ob Pause, Lädt oder Springe. ◀ ▶ ▲ ▼ spulen mit kleinem Vorschaubild (bei normalen Videodateien),
 danach geht es von selbst weiter (OK = sofort). Pornhub/RedTube/YouPorn laufen im eigenen Player ohne Werbung, beste Qualität (720p+, kein 360p).
 
