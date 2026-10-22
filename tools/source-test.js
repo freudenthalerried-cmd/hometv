@@ -112,7 +112,7 @@ async function play(browser, v, strict) {
     for (const v of vids) {
       const pre = await app.evaluate(v => adultProbe(v).catch(e => 'Fehler: ' + e), v);
       let pl = {ok: false, why: 'Vorab-Prüfung: ' + pre};
-      if (pre !== 'bad') { pl = await play(browser, v, true); if (!pl.ok) { const p2 = await play(browser, v, false); p2.second = true; if (p2.ok) pl = p2; } }
+      if (pre !== 'bad' && pre !== 'lowq') { pl = await play(browser, v, true); if (!pl.ok) { const p2 = await play(browser, v, false); p2.second = true; if (p2.ok) pl = p2; } }
       if (process.env.DEBUG && /REDIRECTS/.test(pl.why || '')) { let u = v.embed; for (let i = 0; i < 5; i++) { const r = await fetch(u, {headers: {'User-Agent': UA}, redirect: 'manual'}).catch(() => null); if (!r) break; console.log('DEBUG REDIR', r.status, u.slice(0, 90), '->', (r.headers.get('location') || '').slice(0, 90), (r.headers.get('set-cookie') || '').slice(0, 60)); if (!r.headers.get('location')) break; u = new URL(r.headers.get('location'), u).href; } }
       rows.push({...v, pre, play: pl});
       console.log(k, v.id, v.sec + 's', 'thumb:' + v.thumb, 'pre:' + pre, JSON.stringify(pl));
@@ -121,10 +121,10 @@ async function play(browser, v, strict) {
   await browser.close();
   const sum = {};
   rows.forEach(r => { const s = sum[r.src] = sum[r.src] || {n: 0, ok: 0, preOk: 0, agree: 0}; s.n++; if (r.play.ok) s.ok++;
-    if (r.pre === 'ok' || r.pre === 'unknown') s.preOk++; if ((r.pre !== 'bad' && r.pre !== 'nofile') === r.play.ok) s.agree++; });
+    if (r.pre === 'ok' || r.pre === 'unknown') s.preOk++; if (!/bad|nofile|lowq/.test(r.pre) === r.play.ok) s.agree++; if (r.play.ok && r.play.height >= 700) s.hd = (s.hd || 0) + 1; });
   let md = `## Quellen-Test\nRunner-Standort: ${geo.city || '?'}, ${geo.region || ''} ${geo.country || '?'} – am Fire TV in Österreich kann es abweichen.\n\n`;
-  md += '| Quelle | läuft | getestet | Vorab-Prüfung stimmt | Hinweis |\n|---|---|---|---|---|\n';
-  names.forEach(([k, n]) => { const s = sum[k] || {n: 0, ok: 0, agree: 0}; md += `| ${n} | ${s.ok} | ${s.n} | ${s.agree}/${s.n} | ${apiErr[k] || ''} |\n`; });
+  md += '| Quelle | läuft | davon 720p+ | getestet | Vorab-Prüfung stimmt | Hinweis |\n|---|---|---|---|---|---|\n';
+  names.forEach(([k, n]) => { const s = sum[k] || {n: 0, ok: 0, agree: 0}; md += `| ${n} | ${s.ok} | ${s.hd || 0} | ${s.n} | ${s.agree}/${s.n} | ${apiErr[k] || ''} |\n`; });
   md += '\n| Quelle | Video | Länge | Vorab | Abspielen |\n|---|---|---|---|---|\n';
   rows.forEach(r => {
     const pl = r.play.ok ? `✅ nach ${r.play.sec}s, ${r.play.height}p${r.play.own ? ', eigener Player' : ''}${r.play.second ? ', 2. Versuch' : ''}` : '❌ ' + r.play.why + (r.play.blocked ? ' [gesperrt: ' + r.play.blocked + ']' : '');

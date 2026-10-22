@@ -86,10 +86,6 @@
       var go = function () {
         hlsObj = new Hls();
         hlsObj.on(Hls.Events.ERROR, function (ev, d) { if (d.fatal && !started) nextCand(); });
-        hlsObj.on(Hls.Events.MANIFEST_PARSED, function () { // start with the best picture up to 1080p
-          var best = -1; hlsObj.levels.forEach(function (l, k) { if (l.height <= 1080 && (best < 0 || l.height > hlsObj.levels[best].height)) best = k; });
-          if (best >= 0) { hlsObj.startLevel = best; hlsObj.currentLevel = best; } // no 250p/360p start
-        });
         hlsObj.loadSource(url); hlsObj.attachMedia(e);
       };
       if (window.Hls) go();
@@ -100,32 +96,50 @@
       }
     } else e.src = url;
   }
-  // the files this page offers, best quality first (mp4 before HLS at the same quality: it has the seek preview)
+  // an HLS "master" lists one playlist per picture size: take them apart so the exact quality is chosen by us
+  function variants(c) {
+    if (!c[1]) return Promise.resolve([c]);
+    return fetch(c[0]).then(function (r) { return r.text(); }).then(function (t) {
+      if (!/#EXT-X-STREAM-INF/.test(t)) return [c];
+      var out = [], ls = t.split(/\r?\n/);
+      ls.forEach(function (l, k) {
+        if (!/^#EXT-X-STREAM-INF/.test(l)) return;
+        var h = +((/RESOLUTION=\d+x(\d+)/.exec(l) || [0, 0])[1]), u = (ls[k + 1] || '').trim();
+        if (u && u[0] !== '#') out.push([new URL(u, c[0]).href, true, h]);
+      });
+      return out.length ? out : [c];
+    }).catch(function () { return [c]; });
+  }
+  /* the files this page offers, best first: only 720p and up when the page has them (no 480p), up to 1080p;
+     mp4 before HLS at the same quality (it has the seek preview) */
   function collect(done) {
-    var host = location.hostname;
+    var host = location.hostname, list = [];
+    var finish = function () {
+      Promise.all(list.map(variants)).then(function (ls) {
+        var all = [].concat.apply([], ls).filter(function (x) { return !x[2] || x[2] <= 1080; });
+        if (all.some(function (x) { return x[2] >= 720; })) all = all.filter(function (x) { return x[2] >= 720; });
+        all.sort(function (a, b) { return (b[2] || 0) - (a[2] || 0) || (a[1] ? 1 : 0) - (b[1] ? 1 : 0); });
+        done(all.map(function (x) { return [x[0], x[1]]; }));
+      });
+    };
     if (/pornhub|redtube/.test(host)) {
-      var defs = mgDefs() || [], direct = [], remote = [];
+      var defs = mgDefs() || [], remote = [];
       defs.forEach(function (d) {
         if (typeof d.videoUrl !== 'string' || !d.videoUrl) return;
         var u = abs(d.videoUrl);
-        if (d.remote || /get_media|\/media\/(hls|mp4)/.test(u)) remote.push([u, d.format === 'hls']); else direct.push([u, d.format === 'hls', qn(d)]);
+        if (d.remote || /get_media|\/media\/(hls|mp4)/.test(u)) remote.push([u, d.format === 'hls']); else list.push([u, d.format === 'hls', qn(d)]);
       });
       Promise.all(remote.map(function (r) { // these answer with the list of every quality
         return fetch(r[0], {credentials:'include'}).then(function (x) { return x.json(); }).then(function (l) {
           return (Array.isArray(l) ? l : []).filter(function (x) { return x.videoUrl; })
             .map(function (x) { return [abs(x.videoUrl), r[1] || /m3u8/.test(x.videoUrl), qn(x)]; });
         }).catch(function () { return []; });
-      })).then(function (ls) {
-        var all = direct.concat.apply(direct, ls);
-        all.sort(function (a, b) { return b[2] - a[2] || (a[1] ? 1 : 0) - (b[1] ? 1 : 0); });
-        done(all.map(function (x) { return [x[0], x[1]]; }));
-      });
+      })).then(function (ls) { list = list.concat.apply(list, ls); finish(); });
     } else if (/xvideos|xnxx/.test(host)) {
-      var t = document.documentElement.innerHTML, c = [], m;
-      if ((m = /setVideoHLS\(\s*['"]([^'"]+)/.exec(t))) c.push([abs(m[1]), true]);
-      if ((m = /setVideoUrlHigh\(\s*['"]([^'"]+)/.exec(t))) c.push([abs(m[1]), false]);
-      if ((m = /setVideoUrlLow\(\s*['"]([^'"]+)/.exec(t))) c.push([abs(m[1]), false]);
-      done(c);
+      var t = document.documentElement.innerHTML, m;
+      if ((m = /setVideoHLS\(\s*['"]([^'"]+)/.exec(t))) list.push([abs(m[1]), true, 0]);
+      if ((m = /setVideoUrlHigh\(\s*['"]([^'"]+)/.exec(t))) list.push([abs(m[1]), false, 0]);
+      finish();
     } else done([]);
   }
   setTimeout(function () { collect(function (c) { if (c.length) own(c); }); }, 0); // after the start-up code below

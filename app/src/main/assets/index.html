@@ -196,15 +196,7 @@ function wantAdultCheck(list) {
    File-level "no" only counts once at least one file said "yes" - otherwise the site may just block our plain
    request (e.g. needs a cookie) and we would wrongly hide everything. */
 var fileOkSeen = false, filePending = [], fileFails = 0, fileCheckOn = true, testStats = null;
-function mediaUrls(h, base) {
-  var out = [], re = /"videoUrl"\s*:\s*"([^"]+)"(?:[^}]*?"quality"\s*:\s*"?(\d*))?/g, m;
-  while ((m = re.exec(h))) out.push([m[1].replace(/\\\//g, '/'), +m[2] || 0]);
-  re = /setVideo(?:HLS|UrlHigh|UrlLow)\(\s*['"]([^'"]+)/g;
-  while ((m = re.exec(h))) out.push([m[1], 0]);
-  var origin = (/^https:\/\/[^\/]+/.exec(base || '') || [''])[0];
-  return out.sort(function (a, b) { return b[1] - a[1]; }).map(function (x) { return x[0].charAt(0) === '/' && x[0].charAt(1) !== '/' ? origin + x[0] : x[0]; })
-    .filter(function (u) { return /^https:\/\//.test(u); });
-}
+var REMOTE = /get_media|\/media\/(hls|mp4)/; // these answer with a list of files
 function checkOne(u) {
   if (!A.check) return Promise.resolve(true);
   return new Promise(function (res) {
@@ -213,16 +205,6 @@ function checkOne(u) {
     A.check(JSON.stringify([u]), id);
   });
 }
-var REMOTE = /get_media|\/media\/(hls|mp4)/; // these answer with a list of files
-function fileTest(h, base) {
-  var u = mediaUrls(h, base), direct = u.filter(function (x) { return !REMOTE.test(x); }), gm = u.filter(function (x) { return REMOTE.test(x); })[0];
-  if (direct.length) return checkOne(direct[0]);
-  if (gm) return http(gm).then(function (t) {
-    var l = JSON.parse(t); l = (Array.isArray(l) ? l : []).filter(function (x) { return x.videoUrl; });
-    return l.length ? checkOne(l.sort(function (a, b) { return (+b.quality || 0) - (+a.quality || 0); })[0].videoUrl) : null;
-  }).catch(function () { return null; });
-  return Promise.resolve(null); // nothing to test: keep it
-}
 function markAdult(v, ok) {
   adultOk[v.id] = [ok, Date.now()];
   var k = Object.keys(adultOk); if (k.length > 4000) delete adultOk[k[0]];
@@ -230,20 +212,44 @@ function markAdult(v, ok) {
   if (testStats && v._test) { testStats.n++; testStats[ok ? 'ok' : 'bad']++; testStats.src[v.src] = testStats.src[v.src] || [0, 0]; testStats.src[v.src][ok ? 0 : 1]++; }
   if (!ok) { P.bad[v.id] = 1; save('profile', P); dropCard(v.id); }
 }
-// one video: 'ok', 'bad' (gone/blocked/protected), 'nofile' (file does not answer) or 'unknown' (nothing to test)
+// all files of a page with their height, best first (Aylo lists, remote lists, HLS masters)
+function qualities(h, base) {
+  var origin = (/^https:\/\/[^\/]+/.exec(base || '') || [''])[0], out = [], remote = [], m;
+  var absU = function (u) { u = u.replace(/\\\//g, '/'); return u.charAt(0) === '/' && u.charAt(1) !== '/' ? origin + u : u; };
+  var re = /"videoUrl"\s*:\s*"([^"]+)"(?:[^}]*?"quality"\s*:\s*"?(\d*))?/g;
+  while ((m = re.exec(h))) { var u = absU(m[1]); if (REMOTE.test(u)) remote.push(u); else out.push([u, +m[2] || 0]); }
+  var hl = /setVideoHLS\(\s*['"]([^'"]+)/.exec(h);
+  var jobs = remote.map(function (u) {
+    return http(u).then(function (t) {
+      var l = JSON.parse(t); (Array.isArray(l) ? l : []).forEach(function (x) { if (x.videoUrl) out.push([absU(x.videoUrl), +x.quality || 0]); });
+    }).catch(function () { });
+  });
+  if (hl) jobs.push(http(hl[1]).then(function (t) {
+    var ls = t.split(/\r?\n/);
+    ls.forEach(function (l, k) { var r = /RESOLUTION=\d+x(\d+)/.exec(l); if (r && ls[k + 1]) out.push([new URL(ls[k + 1].trim(), hl[1]).href, +r[1]]); });
+    if (!out.length) out.push([hl[1], 0]);
+  }).catch(function () { out.push([hl[1], 0]); }));
+  return Promise.all(jobs).then(function () {
+    return out.filter(function (x) { return /^https:\/\//.test(x[0]) && x[1] <= 1080; }).sort(function (a, b) { return b[1] - a[1]; });
+  });
+}
+// one video: 'ok', 'bad' (gone/blocked/protected), 'lowq' (below 720p), 'nofile' (file does not answer) or 'unknown'
 function adultProbe(v) {
   return http(v.embed).then(function (h) {
     var good = /"videoUrl"\s*:\s*"(https?:|\\?\/)/.test(h) || /setVideo(Url|HLS)/.test(h);
     if (!good && ADULT_BAD.test(h)) return 'bad';
-    if (!fileCheckOn) return 'unknown';
-    return fileTest(h, v.embed).then(function (r) { return r === null ? 'unknown' : r ? 'ok' : 'nofile'; });
+    return qualities(h, v.embed).then(function (q) {
+      if (q.length && q[0][1] && q[0][1] < 720) return 'lowq';
+      if (!fileCheckOn || !q.length) return 'unknown';
+      return checkOne(q[0][0]).then(function (ok) { return ok ? 'ok' : 'nofile'; });
+    });
   });
 }
 function pumpAdult() {
   while (adultBusy < 3 && adultQ.length) (function (v) {
     adultBusy++;
     adultProbe(v).then(function (r) {
-      if (r === 'bad') return markAdult(v, false);
+      if (r === 'bad' || r === 'lowq') return markAdult(v, false);
       if (r === 'ok') { fileOkSeen = true; fileFails = 0; filePending.forEach(function (x) { markAdult(x, false); }); filePending = []; return markAdult(v, true); }
       if (r === 'unknown') return markAdult(v, true);
       if (fileOkSeen) return markAdult(v, false);
@@ -354,10 +360,11 @@ function webmaster(base, pre, thumbsize, embed) {
   };
 }
 var SRC = {
-  ph:{name:'Pornhub', get:webmaster('https://www.pornhub.com/webmasters/search?', 'ph', 'large_hd', 'https://www.pornhub.com/embed/')},
-  rt:{name:'RedTube', get:webmaster('https://api.redtube.com/?data=redtube.Videos.searchVideos&output=json&', 'rt', 'big', 'https://embed.redtube.com/?id=')},
+  // the normal video pages, not the embeds: only they offer 720p / 1080p
+  ph:{name:'Pornhub', get:webmaster('https://www.pornhub.com/webmasters/search?', 'ph', 'large_hd', 'https://www.pornhub.com/view_video.php?viewkey=')},
+  rt:{name:'RedTube', get:webmaster('https://api.redtube.com/?data=redtube.Videos.searchVideos&output=json&', 'rt', 'big', 'https://www.redtube.com/')},
   xv:{name:'XVideos', get:tube('xv', 'https://www.xvideos.com', function (q, o) {
-    return q ? '/?k=' + encodeURIComponent(q) + '&sort=' + (o.order === 'latest' ? 'uploaddate' : o.order === 'top-rated' ? 'rating' : 'relevance') + '&p=' + ((o.page || 1) - 1)
+    return q ? '/?k=' + encodeURIComponent(q) + (o.page > 1 ? '&p=' + (o.page - 1) : '')
       : (o.page > 1 ? '/new/' + (o.page - 1) : '/'); }, /href="(\/video\.?([a-z0-9]+)\/[^"]+)"/)},
   xn:{name:'XNXX', get:tube('xn', 'https://www.xnxx.com', function (q, o) {
     return q ? '/search/' + encodeURIComponent(q) + (o.page > 1 ? '/' + (o.page - 1) : '') : '/best'; }, /href="(\/video-([a-z0-9]+)\/[^"]+)"/)}
@@ -369,6 +376,7 @@ function tube(pre, base, path, linkRe) {
     return http(base + path(q, o)).then(function (t) {
       return t.split(/class="thumb-block/).slice(1).map(function (b) {
         var l = linkRe.exec(b); if (!l) return null;
+        var hd = /video-(?:hd|sd)-mark[^>]*>\s*(\d+)p/.exec(b); if (hd && +hd[1] < 720) return null; // list says below 720p
         var ti = /title="([^"]{3,200})"/.exec(b), im = /data-src="(https:[^"]+\.jpg)"/.exec(b) || /src="(https:[^"]+\.jpg)"/.exec(b);
         var d = /(\d+)\s*h/.exec(b), m = /(\d+)\s*min/.exec(b), sc = /(\d+)\s*sec/.exec(b);
         var tit = ti ? ti[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'") : '';
