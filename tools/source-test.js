@@ -89,7 +89,33 @@ async function play(browser, v, strict) {
   return res;
 }
 
+// candidates: is search reachable, and does a video page carry a playable file?
+const CANDIDATES = [
+  ['Eporner API', 'https://www.eporner.com/api/v2/video/search/?query=couple&per_page=5&thumbsize=big&order=top-weekly&format=json', /"id":"([^"]+)"/, id => 'https://www.eporner.com/embed/' + id + '/'],
+  ['XVideos', 'https://www.xvideos.com/?k=couple', /href="(\/video\.?[a-z0-9]+\/[^"]+)"/, m => 'https://www.xvideos.com' + m],
+  ['XNXX', 'https://www.xnxx.com/search/couple', /href="(\/video-[a-z0-9]+\/[^"]+)"/, m => 'https://www.xnxx.com' + m],
+  ['Tube8 API', 'https://api.tube8.com/api.php?action=searchVideos&output=json&search=couple', /"video_id"\s*:\s*"?(\d+)/, id => 'https://www.tube8.com/embed/' + id + '/'],
+  ['SpankBang', 'https://spankbang.com/s/couple/', /href="(\/[a-z0-9]+\/video\/[^"]+)"/, m => 'https://spankbang.com' + m],
+  ['xHamster', 'https://xhamster.com/search/couple', /href="(https:\/\/xhamster\.com\/videos\/[^"]+)"/, m => m],
+  ['HQporner', 'https://hqporner.com/?q=couple', /href="(\/hdporn\/[^"]+)"/, m => 'https://hqporner.com' + m],
+  ['PornTrex', 'https://www.porntrex.com/search/couple/', /href="(https:\/\/www\.porntrex\.com\/video\/[^"]+)"/, m => m]
+];
+const PATTERNS = ['m3u8', '.mp4', 'setVideoHLS', 'setVideoUrlHigh', 'mediaDefinitions', 'videoUrl', 'sources', 'cf-chl', 'Just a moment', 'captcha', 'age-verif', 'not available'];
+async function probe() {
+  for (const [name, url, re, toVideo] of CANDIDATES) {
+    try {
+      const r = await get(url); const t = await r.text(); const m = re.exec(t);
+      console.log('PROBE', name, 'search', r.status, 'len', t.length, 'treffer', m ? m[1].slice(0, 60) : '-', t.includes('Just a moment') ? 'CLOUDFLARE' : '');
+      if (!m) continue;
+      const vu = toVideo(m[1]); const r2 = await get(vu); const h = await r2.text();
+      console.log('PROBE', name, 'video', r2.status, vu.slice(0, 80), PATTERNS.map(w => w + ':' + (h.split(w).length - 1)).filter(x => !/:0$/.test(x)).join(' '));
+      const fm = h.match(/https?:[^"'\s]+?\.(m3u8|mp4)[^"'\s]*/);
+      if (fm) { const f = fm[0].replace(/\\\//g, '/'); console.log('PROBE', name, 'datei', f.slice(0, 90), await reachable(f)); }
+    } catch (e) { console.log('PROBE', name, 'Fehler', String(e.message || e).slice(0, 80)); }
+  }
+}
 async function debug() {
+  await probe();
   for (const u of ['https://www.youporn.com/api/webmasters/search?search=couple', 'https://www.youporn.com/api/webmasters/search/?search=couple',
     'https://www.youporn.com/api/webmasters/v2/search?search=couple', 'https://api.youporn.com/api/webmasters/search?search=couple']) {
     const r = await get(u).catch(e => ({status: String(e.message)})); const t = r.text ? (await r.text()).slice(0, 160).replace(/\s+/g, ' ') : '';
