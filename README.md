@@ -51,6 +51,15 @@ schaltet frei, beim Zurück zu Home wird wieder gesperrt. Die öffentliche Suche
 - **Netzkino** in „Filme“: ganze Kinofilme gratis und legal (offizieller YouTube-Kanal).
 - **Deine Apps** am Startbild: Netflix, Prime Video, Disney+, Joyn … direkt starten.
 
+## Nachrichten
+Live-TV (ORF 2, ServusTV mit Servus Nachrichten, tagesschau24, DW English), ZIB, Tagesschau, heute journal, Tagesthemen, Weltspiegel
+und YouTube-Nachrichten (tagesschau, ZDFheute, DW News und BBC News auf Englisch mit Untertiteln). Ist die ServusTV-App installiert, gibt es einen Knopf dafür.
+
+## Prüfung & Updates
+Jeder Film, jedes YouTube-Video und jeder Live-Sender wird vor dem Anzeigen am Gerät geprüft (Live alle 10 Min., sonst täglich); was nicht läuft, wird ausgeblendet.
+Updates werden beim Start und alle 6 Stunden gesucht und automatisch geladen; Android verlangt danach einmal „Installieren“.
+Einstellungen → 📋 Update-Protokoll zeigt alle Prüfungen, Downloads, Installationen und Inhalts-Updates.
+
 ## Musik, YouTube & Entspannung
 Musik nach Stimmung (SomaFM, Radio Swiss – werbefrei; Liste in content.json "music") und Radio.
 **YouTube**: offizielle Doku-Kanäle (Terra X, ZDFinfo, MDR DOK, Netzkino …), ohne Shorts ("youtube_rubrik").

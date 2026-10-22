@@ -33,7 +33,7 @@ function mvTopTopics(n) {
 function profileLearn(v, w) {
   if (!w) return;
   if (v.src === 'mv') learnMv(v, w);
-  else if (v.src !== 'yt') learn(v, w);
+  else if (v.src !== 'yt' && v.src !== 'live') learn(v, w);
 }
 
 function rateVideo(v, n) {

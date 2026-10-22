@@ -290,8 +290,13 @@ public class MainActivity extends Activity {
                 + "<body style='margin:0;background:#000'><video id=v autoplay playsinline style='width:100vw;height:100vh'></video><script>"
                 + "var U=" + urls.toString() + ",i=0,v=document.getElementById('v');window.__ak_state='loading';"
                 + "function next(){if(i>=U.length){window.__ak_state='error';return;}var u=U[i++];"
-                + "window.__ak_url=u;if(/\\.m3u8/.test(u)&&!v.canPlayType('application/vnd.apple.mpegurl')&&window.Hls&&Hls.isSupported()){"
-                + "var h=new Hls();h.loadSource(u);h.attachMedia(v);h.on(Hls.Events.ERROR,function(e,d){if(d.fatal){h.destroy();next();}});}"
+                + "window.__ak_url=u;var subs=/#subs$/.test(u);"
+                // '#subs' = English channel: show subtitles, German track first
+                + "if(subs)v.textTracks.addEventListener('addtrack',function(e){e.track.mode='showing';});"
+                + "if(/\\.m3u8/.test(u)&&!v.canPlayType('application/vnd.apple.mpegurl')&&window.Hls&&Hls.isSupported()){"
+                + "var h=new Hls();h.subtitleDisplay=subs;h.loadSource(u);h.attachMedia(v);h.on(Hls.Events.ERROR,function(e,d){if(d.fatal){h.destroy();next();}});"
+                + "if(subs)h.on(Hls.Events.SUBTITLE_TRACKS_UPDATED,function(){var t=h.subtitleTracks,k=0;"
+                + "for(var j=0;j<t.length;j++)if(/^de/i.test(t[j].lang||''))k=j;h.subtitleTrack=k;h.subtitleDisplay=true;});}"
                 + "else{v.src=u;}var p=v.play();if(p&&p.catch)p.catch(function(){});}"
                 + "v.addEventListener('error',next);v.addEventListener('playing',function(){window.__ak_state='playing';});next();"
                 + "</script></body></html>";

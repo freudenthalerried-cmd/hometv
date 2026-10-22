@@ -3,7 +3,7 @@
    area behind a decoy password prompt (press OK three times quickly). Uses helpers from index.html at runtime. */
 var unlocked = false;
 var camOk = false; // cameras sit behind the same 3× OK gate, separately from the private area
-var PUB_TABS = [['dash','Home'],['movies','Filme'],['comedy','Comedy'],['yt','YouTube'],['cams','Kameras'],['radio','Musik'],['search','🎤 Suche'],['priv','Privat'],['set','Einstellungen']];
+var PUB_TABS = [['dash','Home'],['movies','Filme'],['news','News'],['comedy','Comedy'],['yt','YouTube'],['cams','Kameras'],['radio','Musik'],['search','🎤 Suche'],['priv','Privat'],['set','⚙']];
 var PRIV_TABS = [['dash','← Home'],['home','Für dich'],['rand','Zufall'],['cats','Kategorien'],['search','🎤 Suche'],['mine','Liste'],['games','Spiele'],['set','⚙']];
 var PRIV_VIEWS = {priv:1, home:1, rand:1, cats:1, cat:1, mine:1, games:1};
 
@@ -81,7 +81,7 @@ function dash() {
   unlocked = false; camOk = false; // back home = everything locked again
   begin();
   tickClock(); loadWeather(); loadNews();
-  addRow('', [['🎬 Filme', function () { go('movies'); }], ['😂 Comedy', function () { go('comedy'); }], ['📷 Kameras', function () { go('cams'); }],
+  addRow('', [['🎬 Filme', function () { go('movies'); }], ['📰 Nachrichten', function () { go('news'); }], ['😂 Comedy', function () { go('comedy'); }], ['📷 Kameras', function () { go('cams'); }],
     ['🎵 Musik', function () { go('radio'); }], ['▶ YouTube', function () { go('yt'); }], ['🌿 Entspannung', function () { go('relax'); }], ['🎤 Suche', function () { voiceSearch(); }],
     ['🔒 Privat', function () { go('priv'); }], ['⚙️ Einstellungen', function () { go('set'); }]], 'tile');
   var apps = myApps();
@@ -173,7 +173,7 @@ function myApps() {
 /* ---------- YouTube channel feeds (official channels, played via the privacy-friendly embed) ---------- */
 var YT_COMEDY = [['heute-show auf YouTube', 'UCFqcNI0NaAA21NS9W3ExCRg']];
 var NETZKINO = ['Netzkino – ganze Kinofilme gratis & legal', 'UCGkHFrwE8KEuOHPVsIOskAg'];
-function ytFeed(name, id) {
+function ytFeed(name, id, subs) {
   return http('https://www.youtube.com/feeds/videos.xml?channel_id=' + encodeURIComponent(id)).then(function (t) {
     var doc = new DOMParser().parseFromString(t, 'text/xml');
     var tag = function (el, n) { var x = el.getElementsByTagNameNS('*', n)[0]; return x ? x.textContent : ''; };
@@ -183,10 +183,11 @@ function ytFeed(name, id) {
       if (link && /\/shorts\//.test(link.getAttribute('href') || '')) return null; // no Shorts, only real videos
       return {id:'yt:' + vid, src:'yt', chId:id, channel:name.split(' –')[0], title:tag(e, 'title'), desc:tag(e, 'description'),
         date:Date.parse(tag(e, 'published')) / 1000 || 0, length_sec:0, keywords:'', views:0, rate:0,
-        embed:'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&modestbranding=1',
+        embed:'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1&rel=0&modestbranding=1' + (subs ? '&cc_load_policy=1&cc_lang_pref=de&hl=de' : ''),
+        check:'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + vid), // 200 only if embeddable
         default_thumb:{src:'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg'}, thumbs:[]};
     }).filter(function (v) { return v && !P.bad[v.id]; });
-  }).catch(function () { return []; });
+  }).then(playable).catch(function () { return []; });
 }
 
 /* ---------- YouTube section: German documentary channels + free films ---------- */

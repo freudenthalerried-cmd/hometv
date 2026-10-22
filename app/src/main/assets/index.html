@@ -117,6 +117,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 <script src="games.js"></script>
 <div id="act"><div class="box"><h1 id="at"></h1><div id="ar"></div><div class="k" id="ak"></div></div></div>
 <script src="home.js"></script>
+<script src="news.js"></script>
 <script src="rate.js"></script>
 <script>
 'use strict';
@@ -293,8 +294,8 @@ function renderNav() {
 }
 function cardHTML(v) {
   var w = P.watched[v.id], pct = w ? Math.min(100, w / v.length_sec * 100) : 0;
-  if (v.src === 'mv') return '<div class="card f mv" style="background:' + (v.default_thumb.src ? thumbBg(v).replace(/"/g, "'") : 'linear-gradient(135deg,' + (MV_COLORS[v.channel] || '#444') + ',#111)') + '">' +
-    '<span class="ch">' + esc(v.channel) + '</span><div class="mt">' + esc(v.title) + '</div><span class="d">' + dur(v.length_sec) + '</span>' +
+  if (v.src === 'mv' || v.src === 'live') return '<div class="card f mv" style="background:' + (v.default_thumb.src ? thumbBg(v).replace(/"/g, "'") : 'linear-gradient(135deg,' + (v.src === 'live' ? '#b3122b' : MV_COLORS[v.channel] || '#444') + ',#111)') + '">' +
+    '<span class="ch">' + esc(v.channel) + '</span><div class="mt">' + esc(v.title) + '</div><span class="d">' + (v.src === 'live' ? '● LIVE' : dur(v.length_sec)) + '</span>' +
     (isFav(v.id) ? '<span class="fav">♥</span>' : '') + badge(v) + (pct ? '<span class="w" style="width:' + pct + '%"></span>' : '') + '</div>';
   return '<div class="card f"><img src="' + esc(v.default_thumb && v.default_thumb.src || '') + '">' +
     (v.length_sec ? '<span class="d">' + dur(v.length_sec) + '</span>' : '') +
@@ -371,6 +372,7 @@ function hero(v) {
     $('hg').textContent = (v.desc || '').slice(0, 170);
     return;
   }
+  if (v.src === 'live') { $('hm').innerHTML = '<b>● LIVE</b> · ' + esc(v.title); $('hg').textContent = v.desc || ''; return; }
   if (v.src === 'mv') {
     $('hm').innerHTML = '<b>' + esc(v.channel) + '</b> · ' + dur(v.length_sec) + ' · ' + esc(v.topic || '') +
       (v.date ? ' · ' + new Date(v.date * 1000).toLocaleDateString('de-AT') : '') + (P.watched[v.id] ? ' · gesehen' : '') + myRating(v);
@@ -471,22 +473,24 @@ function behaviourWeight(v, sec) {
   if (sec < 120) return -1;
   return 0;
 }
+var NOLEARN = {mv:1, yt:1, live:1}; // only adult videos feed P.tags
 function play(v) {
   stopRadio();
-  lastPlayed = v;
-  if (v.src !== 'mv' && v.src !== 'yt') learn(v, 1); // normal films and YouTube don't feed the taste profile
+  lastPlayed = v; playingNow = true;
+  if (!NOLEARN[v.src]) learn(v, 1); // normal films and YouTube don't feed the taste profile
   P.hist = [slim(v)].concat(P.hist.filter(function (x) { return x.id !== v.id; })).slice(0, 60);
   save('profile', P);
   // continue where it was left off (not in the first minute or the last two)
   var pos = P.watched[v.id] || 0, start = pos > 60 && pos < v.length_sec - 120 ? pos : 0;
   if (start) toast('Weiter bei ' + Math.floor(start / 60) + ':' + ('0' + start % 60).slice(-2));
-  if (v.src === 'mv' && A.playDirect) return A.playDirect(JSON.stringify(v.urls || [v.embed]), v.id, start);
+  if ((v.src === 'mv' || v.src === 'live') && A.playDirect) return A.playDirect(JSON.stringify(v.urls || [v.embed]), v.id, start);
   A.play(v.embed || ('https://www.eporner.com/embed/' + v.id + '/'), v.id, start);
 }
 // from the player watchdog: did the video really start?
 window.onPlayResult = function (id, ok, info) {
   var v = lastPlayed; if (!v || v.id !== id) return;
   var src = v.src || 'ep';
+  if (v.src === 'live') { if (!ok) { mvOk[ckey(v)] = [false, Date.now()]; save('mvOk', mvOk); } return; } // live: off for now, not forever
   if (v.urls) { // learn which server worked or that none did
     var used = String(info || '').split('|').slice(1).join('|');
     if (ok && used) patNote(used, true);
@@ -510,7 +514,9 @@ window.onPlayResult = function (id, ok, info) {
   }
 };
 window.onPlayerClosed = function (id, sec) {
+  playingNow = false;
   var v = lastPlayed; if (!v || v.id !== id) return;
+  if (v.src === 'live') return;
   P.watched[id] = Math.max(P.watched[id] || 0, sec);
   var ids = Object.keys(P.watched); if (ids.length > 3000) delete P.watched[ids[0]];
   // learn from behaviour only: how much of it was watched
@@ -528,7 +534,7 @@ function go(v) {
   if (v === 'priv') v = 'home';
   if (v === 'rand') return randomPlay();
   document.body.classList.toggle('dashv', v === 'dash');
-  view = v; ({dash:dash, yt:ytView, relax:relax, comedy:comedy, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
+  view = v; ({dash:dash, news:news, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
 }
 function randomPlay() {
   toast('Suche einen Film für dich …');
@@ -646,10 +652,11 @@ function movies(o) {
 }
 // Only films whose video is really reachable from this device (geo block, expired). Results cached 24 h.
 var mvOk = load('mvOk', {});
-function playable(list) {
-  var now = Date.now(), DAY = 864e5;
-  var need = list.filter(function (v) { var c = mvOk[v.urls[0]]; return !c || now - c[1] > DAY; });
-  var done = function () { return list.filter(function (v) { var c = mvOk[v.urls[0]]; return c && c[0]; }); };
+function ckey(v) { return v.check || v.urls[0]; }
+function playable(list, fresh) {
+  var now = Date.now(), AGE = fresh ? 6e5 : 864e5;
+  var need = list.filter(function (v) { var c = mvOk[ckey(v)]; return !c || now - c[1] > AGE; });
+  var done = function () { return list.filter(function (v) { var c = mvOk[ckey(v)]; return c && c[0]; }); };
   if (!need.length || !A.check) return Promise.resolve(A.check ? done() : list);
   return new Promise(function (res) {
     var id = 'c' + (++cbn);
@@ -657,14 +664,14 @@ function playable(list) {
       var r = []; try { r = JSON.parse(body); } catch (e) { }
       // nothing reachable at all = probably no internet, not blocked: learn nothing, show the list as is
       if (!r.some(function (x) { return x === true; })) return res(list);
-      need.forEach(function (v, i) { mvOk[v.urls[0]] = [r[i] === true, now]; if (r.length) patNote(v.urls[0], r[i] === true); });
+      need.forEach(function (v, i) { mvOk[ckey(v)] = [r[i] === true, now]; if (v.src === 'mv') patNote(v.urls[0], r[i] === true); });
       patSave();
       var keys = Object.keys(mvOk);
       if (keys.length > 3000) keys.slice(0, keys.length - 3000).forEach(function (k) { delete mvOk[k]; });
       save('mvOk', mvOk);
       res(done());
     };
-    A.check(JSON.stringify(need.map(function (v) { return v.urls[0]; })), id);
+    A.check(JSON.stringify(need.map(ckey)), id);
   });
 }
 function filme() {
@@ -722,6 +729,10 @@ function applyContent(c) {
   if (list(c.filme, isRow)) MV_ROWS = c.filme.map(function (r) { return [r[0], {q:r[1], f:r[2] === 'ttd' ? TTD : TT, min:r[3], ch:r[4]}]; });
   if (list(c.youtube_rubrik, function (r) { return isPair(r) && /^UC[\w-]{22}$/.test(r[1]); })) YT_TUBE = c.youtube_rubrik;
   if (list(c.entspannung, isRow)) RELAX = c.entspannung;
+  var en = function (r, n) { return r.length === n || (r.length === n + 1 && r[n] === 'en'); };
+  if (list(c.nachrichten_live, function (r) { return Array.isArray(r) && en(r, 2) && isText(r[0]) && /^https:\/\//.test(r[1]); })) NEWS_LIVE = c.nachrichten_live;
+  if (list(c.nachrichten, isRow)) NEWS_MV = c.nachrichten;
+  if (list(c.nachrichten_youtube, function (r) { return Array.isArray(r) && en(r, 2) && isText(r[0]) && /^UC[\w-]{22}$/.test(r[1]); })) NEWS_YT = c.nachrichten_youtube;
   if (list(c.comedy, isRow)) COMEDY_MV = c.comedy;
   if (list(c.youtube, function (r) { return isPair(r) && /^UC[\w-]{22}$/.test(r[1]); })) YT_COMEDY = c.youtube;
   if (list(c.music, function (g) {
@@ -735,7 +746,7 @@ function applyContent(c) {
 function loadContent() {
   http(UPD + 'content.json').then(function (t) {
     var c = JSON.parse(t);
-    if (+c.version > contentVer && applyContent(c)) { save('content', c); toast('Neue Inhalte geladen (v' + contentVer + ')'); }
+    if (+c.version > contentVer && applyContent(c)) { save('content', c); toast('Neue Inhalte geladen (v' + contentVer + ')'); logUpd('Neue Inhalte geladen (v' + contentVer + ')'); }
   }).catch(function () { });
 }
 
@@ -847,7 +858,8 @@ var FILLER = {zeig:1, zeige:1, mir:1, uns:1, spiel:1, spiele:1, start:1, starte:
   einen:1, der:1, die:1, das:1, den:1, dem:1, mit:1, von:1, kategorie:1, film:1, filme:1, abspielen:1, öffne:1, ich:1, will:1, möchte:1, sehen:1};
 function doCommand(text) {
   var q = text.toLowerCase().replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (/wetter|uhrzeit|nachrichten/.test(q)) return go('dash');
+  if (/nachricht|news|zib|tagesschau|servus/.test(q)) return go('news');
+  if (/wetter|uhrzeit/.test(q)) return go('dash');
   if (/comedy|kabarett|lustig|witz|satire/.test(q)) return go('comedy');
   if (/netflix|prime|disney|joyn|app\b/.test(q)) {
     var ap = myApps().filter(function (a) { return q.indexOf(a[0].toLowerCase().split(' ')[0]) >= 0; })[0];
@@ -920,22 +932,45 @@ function showUpd(notes) {
 }
 function hideUpd() { $('upd').style.display = 'none'; updOn = false; }
 function curVer() { return A.version ? A.version() : 0; }
+var playingNow = false;
+function autoUpd() { return load('autoUpd', true); }
+function startUpdate(notes) {
+  save('updNotes', [newVer, notes || '']);
+  logUpd('Update v' + newVer + ' wird geladen' + (notes ? ': ' + notes : ''));
+  A.update(UPD + 'AbendKino.apk');
+}
 function checkUpdate(manual) {
   http(UPD + 'version.json').then(function (t) {
     var j = JSON.parse(t);
     newVer = +j.versionCode || 0;
-    // popup once per new version (or every time when checked by hand)
-    if (newVer > curVer() && A.update && (manual || load('updSeen', 0) < newVer) && !lockOn) {
-      save('updSeen', newVer); showUpd(j.notes);
+    var fresh = load('updSeen', 0) < newVer;
+    // automatic mode tries again at every check until it is installed; popup mode asks once per version
+    if (newVer > curVer() && A.update && !lockOn && (manual || ((fresh || autoUpd()) && !playingNow))) {
+      save('updSeen', newVer);
+      if (manual || autoUpd()) { toast('Update v' + newVer + ' wird automatisch installiert …'); startUpdate(j.notes); }
+      else showUpd(j.notes);
     } else if (newVer > curVer()) toast('Update verfügbar – Einstellungen → Jetzt aktualisieren');
     else if (manual) toast('AbendKino ist aktuell (v' + curVer() + ')');
+    logUpd(newVer > curVer() ? 'Update v' + newVer + ' gefunden' : 'Geprüft: aktuell (v' + curVer() + ')');
     if (view === 'set') settings();
-  }).catch(function () { if (manual) toast('Update-Prüfung fehlgeschlagen'); });
+    if (view === 'log') updLogView();
+  }).catch(function () { logUpd('Update-Prüfung fehlgeschlagen (kein Internet?)'); if (manual) toast('Update-Prüfung fehlgeschlagen'); });
 }
 window.onUpdate = function (st) {
-  toast({permission:'Bitte „Unbekannte Apps installieren“ erlauben, dann nochmal OK',
-    install:'Installation startet …', error:'Download fehlgeschlagen'}[st] || 'Update lädt … ' + st);
+  var m = {permission:'Bitte „Unbekannte Apps installieren“ für AbendKino erlauben – danach läuft es automatisch',
+    install:'Bitte „Installieren“ drücken …', error:'Download fehlgeschlagen'}[st];
+  if (m) logUpd(m);
+  toast(m || 'Update lädt … ' + st);
 };
+// a new version is running: note it in the log once
+(function () {
+  var v = curVer(), last = load('lastVer', 0);
+  if (v && v !== last) {
+    var n = load('updNotes', [0, '']);
+    if (last) logUpd('Installiert: v' + v + (n[0] === v && n[1] ? ' – ' + n[1] : ''));
+    save('lastVer', v);
+  }
+})();
 
 function settings() {
   var keep = view === 'set' && lines[L] ? [L, lines[L].i] : null; // stay on the toggled button
@@ -943,8 +978,9 @@ function settings() {
   var strict = A.load('strict') !== '0';
   var tt = topTags(12), disc = load('disc', false), ml = MIN_SEC / 60, pin = load('pin', []).length === 4;
   addRow('Version v' + curVer() + ' · Inhalte v' + contentVer + (newVer > curVer() ? ' – Update auf v' + newVer + ' verfügbar' : ''), [
-    ['Jetzt aktualisieren', function () { if (A.update) A.update(UPD + 'AbendKino.apk'); }],
-    ['Nach Update suchen', function () { checkUpdate(true); }]], 'btn');
+    ['Nach Update suchen', function () { checkUpdate(true); }],
+    [(autoUpd() ? '● ' : '○ ') + 'Automatisch installieren', function () { save('autoUpd', !autoUpd()); settings(); }],
+    ['📋 Update-Protokoll', function () { go('log'); }]], 'btn');
   wxLocRow();
   if (unlocked) {
   addRow('Werbeblocker', [[(strict ? '● Streng (empfohlen)' : '○ Streng'), function () { A.save('strict', '1'); toast('Werbeblocker: streng'); settings(); }],
@@ -987,6 +1023,7 @@ if (load('disc', false)) document.body.classList.add('disc');
 go('dash');
 if (load('pin', []).length === 4) showLock(false);
 setTimeout(function () { checkUpdate(false); }, 4000);
+setInterval(function () { loadContent(); checkUpdate(false); }, 6 * 3600e3); // the app often stays open for days
 </script>
 </body>
 </html>

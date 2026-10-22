@@ -1,5 +1,5 @@
 {
- "_hilfe": "Inhalte von AbendKino. Nach dem Speichern auf GitHub sind sie in ca. 1 Minute am Fire TV (nach App-Neustart). Spiele: je 3 Stufen [Romantisch, Prickelnd, Heiß]. Karten/Massage: [Text, Sekunden]. Geschichten: Knoten mit t=Text, task=[Aufgabe, Sekunden], c=[[Wahl, nächster Knoten], …]. Comedy: wie Filme. YouTube: [Name, Kanal-ID UC…]. Musik: [Gruppe, [[Name, https-Stream], …]]. Radio: [Name, https-Stream-Adresse]. Filme: [Name, Suchbegriff, tt=Titel/Thema oder ttd=auch Beschreibung, Mindestlänge in Sekunden, optional Sender z. B. arte]. YouTube-Rubrik: [Name, Kanal-ID]. Entspannung: wie Filme.",
+ "_hilfe": "Inhalte von AbendKino. Nach dem Speichern auf GitHub sind sie in ca. 1 Minute am Fire TV (nach App-Neustart). Spiele: je 3 Stufen [Romantisch, Prickelnd, Heiß]. Karten/Massage: [Text, Sekunden]. Geschichten: Knoten mit t=Text, task=[Aufgabe, Sekunden], c=[[Wahl, nächster Knoten], …]. Comedy: wie Filme. YouTube: [Name, Kanal-ID UC…]. Musik: [Gruppe, [[Name, https-Stream], …]]. Radio: [Name, https-Stream-Adresse]. Filme: [Name, Suchbegriff, tt=Titel/Thema oder ttd=auch Beschreibung, Mindestlänge in Sekunden, optional Sender z. B. arte]. YouTube-Rubrik: [Name, Kanal-ID]. Entspannung: wie Filme. Nachrichten: wie Filme; nachrichten_live: [Name, https-Stream, optional en = Untertitel]; nachrichten_youtube: [Name, Kanal-ID, optional en].",
  "version": 1,
  "categories": [
    ["Amateur", "amateur"],
@@ -80,6 +80,25 @@
    ["Expeditionen ins Tierreich", "expeditionen ins tierreich", "tt", 2400],
    ["Berge & Landschaften", "berge", "ttd", 2400],
    ["Meer & Küsten", "meer", "ttd", 2400]
+ ],
+ "nachrichten_live": [
+   ["ORF 2", "https://orf2-247.mdn.ors.at/orf/orf2/qxa-247/manifest.m3u8"],
+   ["ServusTV (Servus Nachrichten)", "https://stv-live.akamaized.net/hls/live/2031011/lingeoSTVATwebPri/master.m3u8"],
+   ["tagesschau24", "https://tagesschau.akamaized.net/hls/live/2020115/tagesschau/tagesschau_1/master.m3u8"],
+   ["DW News (English)", "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8", "en"]
+ ],
+ "nachrichten": [
+   ["ZIB – ORF", "zib", "tt", 600, "orf"],
+   ["Tagesschau", "tagesschau", "tt", 600, "ard"],
+   ["heute journal", "heute journal", "tt", 1200],
+   ["Tagesthemen", "tagesthemen", "tt", 1200],
+   ["Weltspiegel", "weltspiegel", "tt", 1500]
+ ],
+ "nachrichten_youtube": [
+   ["tagesschau", "UC5NOEUbkLheQcaaRldYW5GA"],
+   ["ZDFheute Nachrichten", "UCeqKIgPQfNInOswGRWt48kQ"],
+   ["DW News (English, Untertitel)", "UCknLrEdhRCp1aegoMqRaCZg", "en"],
+   ["BBC News (English, Untertitel)", "UC16niRr50-MSBwiO3YDb3RA", "en"]
  ],
  "music": [
    ["Romantisch & Lounge", [["SomaFM Lush", "https://ice1.somafm.com/lush-128-mp3"], ["Radio Swiss Jazz", "https://stream.srg-ssr.ch/m/rsj/mp3_128"], ["SomaFM Secret Agent", "https://ice1.somafm.com/secretagent-128-mp3"]]],
