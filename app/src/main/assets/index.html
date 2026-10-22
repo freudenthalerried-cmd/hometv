@@ -547,6 +547,7 @@ function learnCat(c) { P.tags[c[1]] = (P.tags[c[1]] || 0) + 0.5; save('profile',
 /* ---------- views ---------- */
 function go(v) {
   if (PRIV_VIEWS[v] && !unlocked) return showGate(v); // private area only after the gate
+  if (v === 'cams' && !camOk && !unlocked) return showGate('cams');
   if (v === 'priv') v = 'home';
   if (v === 'rand') return randomPlay();
   document.body.classList.toggle('dashv', v === 'dash');

@@ -2,6 +2,7 @@
 /* HomeTV: dashboard (clock, weather, news), public sections (films, cameras, radio) and the private
    area behind a decoy password prompt (press OK three times quickly). Uses helpers from index.html at runtime. */
 var unlocked = false;
+var camOk = false; // cameras sit behind the same 3× OK gate, separately from the private area
 var PUB_TABS = [['dash','Home'],['movies','Filme'],['comedy','Comedy'],['cams','Kameras'],['radio','Musik'],['search','🎤 Suche'],['priv','Privat'],['set','Einstellungen']];
 var PRIV_TABS = [['dash','← Home'],['home','Für dich'],['rand','Zufall'],['cats','Kategorien'],['search','🎤 Suche'],['mine','Meine Liste'],['games','Paar-Spiele'],['set','Einstellungen']];
 var PRIV_VIEWS = {priv:1, home:1, rand:1, cats:1, cat:1, mine:1, games:1};
@@ -19,7 +20,13 @@ function gateKey(k) {
   if (k !== 'Enter') return;
   gateClicks++;
   clearTimeout(gateT);
-  if (gateClicks >= 3) { hideGate(); unlocked = true; go(gateTarget); return; }
+  if (gateClicks >= 3) {
+    hideGate();
+    if (gateTarget === 'cams') { camOk = true; go('cams'); }
+    else if (gateTarget.indexOf('cam:') === 0) { camOk = true; openCam(+gateTarget.slice(4)); }
+    else { unlocked = true; go(gateTarget); }
+    return;
+  }
   $('gpw').textContent = new Array(gateClicks + 1).join('● ');
   $('gmsg').textContent = '';
   // a single press looks like a wrong password
@@ -71,14 +78,12 @@ function loadNews() {
 }
 
 function dash() {
-  unlocked = false;
+  unlocked = false; camOk = false; // back home = everything locked again
   begin();
   tickClock(); loadWeather(); loadNews();
   addRow('', [['🎬 Filme', function () { go('movies'); }], ['😂 Comedy', function () { go('comedy'); }], ['📷 Kameras', function () { go('cams'); }],
     ['🎵 Musik', function () { go('radio'); }], ['🔥 Kaminfeuer', function () { openFire(); }], ['🎤 Suche', function () { voiceSearch(); }],
     ['🔒 Privat', function () { go('priv'); }], ['⚙️ Einstellungen', function () { go('set'); }]], 'tile');
-  var cl = load('cams', []);
-  if (cl.length) addRow('Kameras', cl.map(function (c, i) { return ['📷 ' + c.name, function () { openCam(i); }]; }), 'tile');
   var apps = myApps();
   if (apps.length) addRow('Deine Apps', apps.map(function (a) { return ['▶ ' + a[0], function () { stopRadio(); A.launch(a[1]); }]; }), 'tile');
   finish();
@@ -217,6 +222,7 @@ function crackle(on) {
 function openCam(i) {
   var cl = load('cams', []);
   if (!cl[i]) return;
+  if (!camOk && !unlocked) return showGate('cam:' + i);
   stopRadio();
   if (A.camera) A.camera(JSON.stringify(cl), i); else toast('Für Kameras bitte zuerst die App aktualisieren');
 }
