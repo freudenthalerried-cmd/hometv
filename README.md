@@ -1,6 +1,6 @@
 # HomeTV – Fire TV App
 
-Werbefreier Film-Browser für Fire TV. Quellen: Eporner, Pornhub, RedTube (öffentliche APIs), gemischt und ohne Duplikate.
+Werbefreier Film-Browser für Fire TV. Quellen: Pornhub und RedTube (öffentliche Webmaster-APIs, offizielle Einbett-Player), gemischt und ohne Duplikate.
 Nur Filme ≥ 10 Min. Reihen laden beim Scrollen endlos nach. Quellen einzeln abschaltbar unter Einstellungen.
 
 ## Installieren (Downloader)

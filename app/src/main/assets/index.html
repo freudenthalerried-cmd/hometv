@@ -124,7 +124,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 <script src="rate.js"></script>
 <script>
 'use strict';
-var API = 'https://www.eporner.com/api/v2/video/search/';
 var MIN_SEC = 600;
 // Safety: never show anything hinting at minors or non-consent.
 var BLOCK = /\b(underage|under age|minors?|child|children|kids?|preteen|pre-teen|jailbait|loli|lolita|shota|schoolgirls?|school girl|young girl|little girl|1[0-7] ?(yo|y\/o|y\.o|years? old|jahre)|rape|raped|forced|drugged|unconscious|passed out|sleeping|asleep|hidden cam|spy ?cam|voyeur)\b/i;
@@ -187,12 +186,6 @@ function secs(d) {
   if (typeof d === 'number') return d;
   return String(d || '').split(':').reduce(function (s, x) { return s * 60 + (+x || 0); }, 0);
 }
-function eporner(o) {
-  var q = {query:o.query || 'all', per_page:40, page:o.page || 1, thumbsize:'big', order:o.order || 'top-weekly', gay:0, lq:0, format:'json'};
-  return http(API + '?' + qs(q)).then(function (t) {
-    return (JSON.parse(t).videos || []).map(function (v) { v.src = 'ep'; return v; });
-  });
-}
 // Pornhub and RedTube share the same public webmaster API format.
 var MG_ORDER = {'top-weekly':['mostviewed','weekly'], 'top-monthly':['mostviewed','monthly'], 'top-rated':['rating','alltime'],
   'most-popular':['mostviewed','alltime'], 'latest':['newest','']};
@@ -215,7 +208,6 @@ function webmaster(base, pre, thumbsize, embed) {
   };
 }
 var SRC = {
-  ep:{name:'Eporner', get:eporner},
   ph:{name:'Pornhub', get:webmaster('https://www.pornhub.com/webmasters/search?', 'ph', 'large_hd', 'https://www.pornhub.com/embed/')},
   rt:{name:'RedTube', get:webmaster('https://api.redtube.com/?data=redtube.Videos.searchVideos&output=json&', 'rt', 'big', 'https://embed.redtube.com/?id=')}
 };
@@ -310,7 +302,7 @@ function cardHTML(v) {
     (isFav(v.id) ? '<span class="fav">♥</span>' : '') + badge(v) + (pct ? '<span class="w" style="width:' + pct + '%"></span>' : '') + '</div>';
   return '<div class="card f"><img src="' + esc(v.default_thumb && v.default_thumb.src || '') + '">' +
     (v.length_sec ? '<span class="d">' + dur(v.length_sec) + '</span>' : '') +
-    '<span class="s">' + (v.src === 'yt' ? 'YouTube' : (SRC[v.src || 'ep'] || SRC.ep).name) + '</span>' + (isFav(v.id) ? '<span class="fav">♥</span>' : '') + badge(v) +
+    '<span class="s">' + (v.src === 'yt' ? 'YouTube' : (SRC[v.src] || {name:'Eporner'}).name) + '</span>' + (isFav(v.id) ? '<span class="fav">♥</span>' : '') + badge(v) +
     (pct ? '<span class="w" style="width:' + pct + '%"></span>' : '') + '<div class="t">' + esc(v.title) + '</div></div>';
 }
 // spec = serializable description of the row ({query, order, page} or {fy:1}); lets rows load endlessly
@@ -482,28 +474,7 @@ function play(v) {
   var pos = P.watched[v.id] || 0, start = pos > 60 && pos < v.length_sec - 120 ? pos : 0;
   if (start) toast('Weiter bei ' + Math.floor(start / 60) + ':' + ('0' + start % 60).slice(-2));
   if (v.src === 'mv' && A.playDirect) return A.playDirect(JSON.stringify(v.urls || [v.embed]), v.id, start);
-  if ((v.src || 'ep') === 'ep' && A.playDirect) return epDirect(v, start);
   A.play(v.embed || ('https://www.eporner.com/embed/' + v.id + '/'), v.id, start);
-}
-// Eporner: fetch the MP4 files directly (best quality first, own player = sound on, no foreign player/ads).
-// The video page carries a hash that the site's own player turns into the source list (same as yt-dlp does).
-function epDirect(v, start) {
-  toast('Lade beste Qualität …');
-  var embed = function () { A.play(v.embed || ('https://www.eporner.com/embed/' + v.id + '/'), v.id, start); };
-  http(v.url || ('https://www.eporner.com/video-' + v.id + '/')).then(function (html) {
-    var m = /hash\s*[:=]\s*["']([\da-f]{32})["']/.exec(html);
-    if (!m) throw 'nohash';
-    var h = [0, 8, 16, 24].map(function (i) { return parseInt(m[1].substr(i, 8), 16).toString(36); }).join('');
-    return http('https://www.eporner.com/xhr/video/' + encodeURIComponent(v.id) + '?hash=' + h + '&device=generic&domain=www.eporner.com&fallback=false');
-  }).then(function (t) {
-    var mp4 = (JSON.parse(t).sources || {}).mp4 || {};
-    var urls = Object.keys(mp4).sort(function (a, b) { return (parseInt(b) || 0) - (parseInt(a) || 0); })
-      .map(function (k) { return mp4[k] && mp4[k].src; }).filter(function (u) { return /^https?:\/\//.test(u || ''); });
-    if (!urls.length) throw 'nosrc';
-    var q = parseInt(Object.keys(mp4).sort(function (a, b) { return (parseInt(b) || 0) - (parseInt(a) || 0); })[0]) || 0;
-    if (q) toast('Qualität: ' + q + 'p');
-    A.playDirect(JSON.stringify(urls.slice(0, 4)), v.id, start);
-  }).catch(embed);
 }
 // from the player watchdog: did the video really start?
 window.onPlayResult = function (id, ok, info) {
