@@ -82,7 +82,8 @@ function openAct(v, rateOnly) {
   actRows = rateOnly ? [starsRow] : [[
     ['▶ Abspielen', function () { closeAct(); play(v); }],
     ['🔎 Ähnliche', function () { closeAct(); openSimilar(v); }],
-    [isFav(v.id) ? '♥ Entfernen' : '♥ Merken', function () { closeAct(); favToggle(v); }]
+    [isFav(v.id) ? '♥ Entfernen' : '♥ Merken', function () { closeAct(); favToggle(v); }],
+    ['⚠ Geht nicht', function () { closeAct(); reportBad(v); }]
   ].concat(show && !isShow(show.n) ? [['⭐ Sendung abonnieren', function () { closeAct(); addShow(show); }]] : []), starsRow];
   actR = 0; actI = rateOnly ? 3 : 0;
   $('at').textContent = rateOnly ? 'Wie hat dir „' + v.title + '“ gefallen?' : v.title;

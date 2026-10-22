@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
                     + "magsrv|ad-maven|clickadu|hilltopads|trafficstars|adspyglass|adsterra|onclick|pushnami|"
                     + "dtscout|mgid|taboola|outbrain|syndication|popunder|adserver|^ads?\\.|\\.ads?\\.)");
     // Strict mode: only the video sites themselves and their CDNs may load anything.
-    private static final String[] ALLOWED = {"eporner.com", "pornhub.com", "phncdn.com", "redtube.com", "rdtcdn.com",
+    private static final String[] ALLOWED = {"pornhub.com", "phncdn.com", "redtube.com", "rdtcdn.com", "youporn.com", "ypncdn.com",
             "cdnjs.cloudflare.com", "ajax.googleapis.com", "jsdelivr.net",
             "youtube-nocookie.com", "youtube.com", "ytimg.com", "googlevideo.com", "ggpht.com", "gstatic.com",
             "akamaihd.net", "akamaized.net", "zdf.de", "ard.de", "ardmediathek.de", "arte.tv", "3sat.de", "orf.at", "srf.ch"};
@@ -71,7 +71,6 @@ public class MainActivity extends Activity {
     private String playingUrl = "";
     private String directHtml = null; // set while a broadcaster film plays in our own <video> page
     private boolean lenient = false;  // second attempt with the normal instead of the strict ad blocker
-    private boolean noBlock = false;  // third attempt: players that wait for their ad (Pornhub) only start without blocking
     private String lastInfo = "\"\""; // JSON string "state|url" from the player page
     // Player progress: every second the page reports its state; the status line shows it until the video runs.
     // No picture after 15 s (20 s for direct films): one retry with the lenient blocker, then a clear error.
@@ -93,15 +92,12 @@ public class MainActivity extends Activity {
                     return;
                 }
                 if ("error".equals(st)) { fail("Video nicht verfügbar"); return; }
-                int limit = directHtml != null ? 20 : 15;
+                // short waits: a video that does not start is dropped and the next one of the row starts instead
+                int limit = directHtml != null ? 15 : lenient ? 8 : 12;
                 if (tick >= limit) {
                     if (directHtml == null && strict && !lenient) {
                         lenient = true; tick = 0;
-                        showStatus("Zweiter Versuch mit normalem Werbeblocker …");
-                        player.loadUrl(playingUrl);
-                    } else if (directHtml == null && !noBlock) {
-                        noBlock = true; tick = 0;
-                        showStatus("Dritter Versuch ohne Werbeblocker (evtl. kurze Werbung) …");
+                        showStatus("Zweiter Versuch …");
                         player.loadUrl(playingUrl);
                     } else { fail("Video startet nicht"); return; }
                 } else if (o == null || "novideo".equals(st) || st.isEmpty()) {
@@ -122,10 +118,10 @@ public class MainActivity extends Activity {
     private void fail(String why) {
         if (reported) return;
         reported = true;
-        status.setText("✖  " + why + " – wird künftig ausgeblendet. Schließe …");
+        status.setText("✖  " + why + " – wird ausgeblendet");
         status.setVisibility(View.VISIBLE);
         reportResult(false);
-        handler.postDelayed(() -> { if (playerVisible()) closePlayer(); }, 3000);
+        handler.postDelayed(() -> { if (playerVisible()) closePlayer(); }, 1500);
     }
 
     private void startProgress(String first) {
@@ -233,7 +229,7 @@ public class MainActivity extends Activity {
         String h = u.getHost() == null ? "" : u.getHost().toLowerCase();
         String url = u.toString().toLowerCase();
         if (MEDIA.matcher(url).find()) return false;
-        if (directHtml != null || noBlock) return false; // broadcaster CDNs / last attempt: nothing blocked
+        if (directHtml != null) return false; // broadcaster CDNs: nothing blocked
         if (strict && !lenient) {
             for (String a : ALLOWED) if (h.equals(a) || h.endsWith("." + a)) return false;
             return true;
@@ -270,7 +266,7 @@ public class MainActivity extends Activity {
         playingHost = parts.length >= 2 ? parts[parts.length - 2] + "." + parts[parts.length - 1] : String.valueOf(h);
         playingUrl = url;
         directHtml = null;
-        lenient = false; noBlock = false;
+        lenient = false;
         WebView p = player();
         p.onResume();
         p.loadUrl(url);
@@ -284,7 +280,7 @@ public class MainActivity extends Activity {
         playingId = id;
         playStart = start;
         playingHost = "";
-        lenient = false; noBlock = false;
+        lenient = false;
         directHtml = "<!doctype html><html><head><meta name=viewport content='width=device-width'>"
                 + "<script src='https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js'></script></head>"
                 + "<body style='margin:0;background:#000'><video id=v autoplay playsinline style='width:100vw;height:100vh'></video><script>"

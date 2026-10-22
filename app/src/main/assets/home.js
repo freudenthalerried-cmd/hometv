@@ -1,9 +1,8 @@
 'use strict';
-/* HomeTV: dashboard (clock, weather, news), public sections (films, cameras, radio) and the private
+/* HomeTV: dashboard (clock, weather, news), public sections (films, news, music …) and the private
    area behind a decoy password prompt (press OK three times quickly). Uses helpers from index.html at runtime. */
 var unlocked = false;
-var camOk = false; // cameras sit behind the same 3× OK gate, separately from the private area
-var PUB_TABS = [['dash','Home'],['fav','★ Favoriten'],['movies','Filme'],['news','News'],['yt','YouTube'],['learn','Lernen'],['radio','Musik'],['search','🎤 Suche'],['priv','Privat'],['set','⚙']];
+var PUB_TABS = [['dash','Home'],['fav','★ Favoriten'],['movies','Filme'],['news','News'],['yt','YouTube'],['learn','Lernen'],['search','🎤 Suche'],['priv','Privat'],['set','⚙']];
 var PRIV_TABS = [['dash','← Home'],['home','Für dich'],['rand','Zufall'],['cats','Kategorien'],['search','🎤 Suche'],['mine','Liste'],['games','Spiele'],['set','⚙']];
 var PRIV_VIEWS = {priv:1, home:1, rand:1, cats:1, cat:1, mine:1, games:1};
 
@@ -22,9 +21,7 @@ function gateKey(k) {
   clearTimeout(gateT);
   if (gateClicks >= 3) {
     hideGate();
-    if (gateTarget === 'cams') { camOk = true; go('cams'); }
-    else if (gateTarget.indexOf('cam:') === 0) { camOk = true; openCam(+gateTarget.slice(4)); }
-    else { unlocked = true; go(gateTarget); }
+    unlocked = true; go(gateTarget);
     return;
   }
   $('gpw').textContent = new Array(gateClicks + 1).join('● ');
@@ -97,12 +94,12 @@ function slideNews(i) {
 }
 
 function dash() {
-  unlocked = false; camOk = false; // back home = everything locked again
+  unlocked = false; // back home = everything locked again
   begin();
   tickClock(); loadWeather(); loadNews();
   var T = function (label, k, fn) { return [label, fn || function () { go(k); }, tileOf(k)]; };
   addRow('', [T('★ Favoriten', 'fav'), T('🎬 Filme', 'movies'), T('📰 Nachrichten', 'news'), T('🎓 Lernen', 'learn'), T('😂 Comedy', 'comedy'),
-    T('📷 Kameras', 'cams'), T('🎵 Musik', 'radio'), T('▶ YouTube', 'yt'), T('🌿 Entspannung', 'relax'), T('🎤 Suche', '', function () { voiceSearch(); }),
+    T('🎵 Musik', 'radio'), T('▶ YouTube', 'yt'), T('🌿 Entspannung', 'relax'), T('🎤 Suche', '', function () { voiceSearch(); }),
     T('🔒 Privat', 'priv-none', function () { go('priv'); }), T('⚙️ Einstellungen', 'set-none', function () { go('set'); })], 'tile');
   newCount().then(function (n) { // how many new episodes of the favourite shows
     if (!n || view !== 'dash') return;
@@ -112,9 +109,30 @@ function dash() {
   var apps = myApps();
   if (apps.length) addRow('Deine Apps', apps.map(function (a) { return [a[2] ? '' : '▶ ' + a[0], function () { stopRadio(); A.launch(a[1]); }, a[2]]; }), 'tile');
   finish();
-  movies({mv:1, q:'spielfilm', f:TT, page:1}).then(function (list) {
-    if (view === 'dash' && list.length) addRow('Neu in den Mediatheken', list, null, {mv:1, q:'spielfilm', f:TT, page:1});
-  });
+  // below the tiles: one row per section to scroll down through, always in the same order
+  var tok = ++dashTok;
+  DASH_ROWS().map(function (r) { return [r, r[1]().catch(function () { return []; })]; }).reduce(function (p, x) {
+    return p.then(function () { return x[1].then(function (list) { if (view === 'dash' && tok === dashTok) addRow(x[0][0], list, null, x[0][2]); }); });
+  }, Promise.resolve());
+}
+var dashTok = 0;
+function mvSpec(q, f, min) { return {mv:1, page:1, q:q, f:f, min:min}; }
+function DASH_ROWS() {
+  var byDate = function (l) { return l.sort(function (a, b) { return (b.date || 0) - (a.date || 0); }); };
+  var row = function (title, spec) { return [title, function () { return movies(spec); }, spec]; };
+  return [
+    ['🆕 Neu bei deinen Favoriten', function () { return Promise.all(myShows().map(episodes)).then(function (r) { return byDate([].concat.apply([], r).filter(function (v) { return v.neu; })); }); }],
+    row('🎬 Neu in den Mediatheken', mvSpec('spielfilm', TT)),
+    ['📰 Nachrichten', function () {
+      return Promise.all(NEWS_MV.slice(0, 2).map(function (r) { return movies({mv:1, page:1, q:r[1], f:TT, min:r[3], ch:r[4]}); }))
+        .then(function (r) { return byDate([].concat.apply([], r)); });
+    }],
+    row('🎞 Dokus', mvSpec('terra x', TT, 2400)),
+    row('😂 Comedy', mvSpec('heute-show', TT, 1200)),
+    ['▶ YouTube', function () { return ytFeed(YT_TUBE[0][0], YT_TUBE[0][1]); }],
+    row('🎓 Lernen', mvSpec('planet schule', TTD, 600)),
+    row('🌿 Entspannung', mvSpec('natur', TTD, 2400))
+  ];
 }
 
 /* ---------- radio ---------- */
@@ -251,14 +269,7 @@ function comedy() {
   });
 }
 
-/* ---------- Tapo cameras (RTSP via the camera account, home network only) ---------- */
-function openCam(i) {
-  var cl = load('cams', []);
-  if (!cl[i]) return;
-  if (!camOk && !unlocked) return showGate('cam:' + i);
-  stopRadio();
-  if (A.camera) A.camera(JSON.stringify(cl), i); else toast('Für Kameras bitte zuerst die App aktualisieren');
-}
+/* ---------- text input row (weather place, favourite shows) ---------- */
 function inputRow(label, ph, type) {
   var r = document.createElement('div'); r.className = 'row'; r.style.height = '12vh';
   r.innerHTML = '<h2></h2><input class="f inp" type="' + type + '">';
@@ -274,29 +285,6 @@ function inputRow(label, ph, type) {
   lines.push({el:r, items:[inp], i:0});
   return inp;
 }
-function cams() {
-  begin();
-  var cl = load('cams', []);
-  if (cl.length) addRow('Kameras – OK = live · im Vollbild ◀ ▶ = nächste Kamera, OK = HD/SD',
-    cl.map(function (c, i) { return ['📷 ' + c.name, function () { openCam(i); }]; }), 'tile');
-  else msg('Noch keine Kamera eingetragen.');
-  var n = inputRow('Neue Kamera: Name', 'z. B. Garten', 'text');
-  var ip = inputRow('IP-Adresse (Tapo-App → Kamera → Geräteinfo)', 'z. B. 192.168.0.50', 'text');
-  var us = inputRow('Benutzer des Kamerakontos', 'Tapo-App → Kamera → Erweitert → Kamerakonto', 'text');
-  var pw = inputRow('Passwort des Kamerakontos', 'bleibt nur auf diesem Fire TV gespeichert', 'password');
-  addRow('', [['Kamera speichern', function () {
-    var host = ip.value.trim();
-    if (!n.value.trim() || !/^[A-Za-z0-9.\-]+$/.test(host) || !us.value) return toast('Bitte Name, IP und Benutzer ausfüllen');
-    cl.push({name:n.value.trim().slice(0, 30), ip:host, user:us.value, pass:pw.value});
-    save('cams', cl); toast('Kamera gespeichert'); cams();
-  }]], 'btn');
-  if (cl.length) addRow('Kamera entfernen', cl.map(function (c, i) {
-    return ['✕ ' + c.name, function () { cl.splice(i, 1); save('cams', cl); toast('Entfernt'); cams(); }];
-  }), 'btn');
-  msg('Funktioniert nur im selben WLAN wie die Kameras. In der Tapo-App unter Kamera → Einstellungen → Erweiterte Einstellungen → Kamerakonto Benutzer und Passwort anlegen.');
-  finish();
-}
-
 /* ---------- weather location (settings) ---------- */
 function wxLocRow() {
   var inp = inputRow('Wetter-Ort: ' + wxLoc().name + ' (neuen Ort eingeben, OK)', 'z. B. Enns', 'text');

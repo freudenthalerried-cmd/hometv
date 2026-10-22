@@ -7,9 +7,10 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;font-family:sans-serif}
-#nav{position:fixed;top:0;left:0;right:0;height:9vh;display:flex;align-items:center;gap:1.2vw;padding:0 3vw;z-index:5;
+#nav{position:fixed;top:0;left:0;right:0;height:9vh;display:flex;align-items:center;gap:.8vw;padding:0 2.4vw;z-index:5;
   background:linear-gradient(#000c,#0000)}
-#nav .logo{font-weight:800;font-size:4.25vh;color:#e50914;margin-right:2vw}
+#nav .logo{font-weight:800;font-size:4.25vh;color:#e50914;margin-right:1vw}
+#nclock{margin-left:auto;font-size:3vh;color:#ddd;white-space:nowrap;font-variant-numeric:tabular-nums}
 .tab{font-size:3vh;padding:.8vh 1vw;white-space:nowrap;border-radius:3vh;color:#bbb}
 .tab.on{color:#fff;font-weight:700}
 #hero{position:fixed;top:0;left:0;right:0;height:52vh;background:#000 center/cover no-repeat;transition:background-image .3s}
@@ -156,6 +157,59 @@ var P = load('profile', {tags:{}, watched:{}, favs:[], hist:[]});
 MIN_SEC = load('minlen', 10) * 60;
 P.bad = P.bad || {};       // videos that did not play on this device -> hidden
 var srcStats = load('srcStats', {}); // last play results per source
+var nextAfter = null, autoSkips = 0;
+function srcSum(src, ok) { var t = load('srcSum', {}); t[src] = t[src] || [0, 0]; t[src][ok ? 0 : 1]++; save('srcSum', t); }
+// the following video of the row the failed one came from
+function nextInRow(id) {
+  for (var r = 0; r < lines.length; r++) {
+    var it = lines[r].items, k = it.findIndex(function (e) { return e._v && e._v.id === id; });
+    if (k >= 0) { for (var j = k + 1; j < it.length; j++) if (it[j]._v && !P.bad[it[j]._v.id]) return it[j]._v; return null; }
+  }
+  return null;
+}
+// take a video out of every row on screen (it does not play here)
+function dropCard(id) {
+  lines.forEach(function (ln, r) {
+    if (ln.nav) return;
+    var k = ln.items.findIndex(function (e) { return e._v && e._v.id === id; });
+    if (k < 0) return;
+    ln.items[k].remove(); ln.items.splice(k, 1);
+    if (ln.i > k || ln.i >= ln.items.length) ln.i = Math.max(0, ln.i - 1);
+    if (r === L && ln.items.length) focus();
+  });
+}
+/* adult videos are tested before they are offered: the embed page must list a video file; removed, private, region-
+   blocked or copy-protected (DRM) ones are hidden. Unclear answers count as fine, so a site change can't hide everything. */
+var adultOk = load('adultOk', {}), adultQ = [], adultBusy = 0;
+var ADULT_BAD = /(video (has been|was) (removed|deleted|disabled)|has been flagged|removed (at|due)|is (private|unavailable|not available)|nicht (mehr )?verfügbar|not available in your (country|region)|copyright|dmca|widevine|drm[_-]?protected)/i;
+function wantAdultCheck(list) {
+  list.forEach(function (v) {
+    if (!v || !v.src || v.src === 'mv' || v.src === 'yt' || v.src === 'live' || v._ck || !v.embed) return;
+    var c = adultOk[v.id];
+    if (c && Date.now() - c[1] < 864e5) { if (!c[0]) { P.bad[v.id] = 1; dropCard(v.id); } return; }
+    v._ck = true; adultQ.push(v);
+  });
+  pumpAdult();
+}
+function pumpAdult() {
+  while (adultBusy < 3 && adultQ.length) (function (v) {
+    adultBusy++;
+    http(v.embed).then(function (h) {
+      var good = /"videoUrl"\s*:\s*"https?:/.test(h) || /setVideo(Url|HLS)/.test(h), bad = !good && ADULT_BAD.test(h);
+      adultOk[v.id] = [!bad, Date.now()];
+      var k = Object.keys(adultOk); if (k.length > 4000) delete adultOk[k[0]];
+      save('adultOk', adultOk);
+      if (bad) { P.bad[v.id] = 1; save('profile', P); dropCard(v.id); }
+    }).catch(function () { }).then(function () { adultBusy--; pumpAdult(); });
+  })(adultQ.shift());
+}
+// ☰ → "Geht nicht": hide it, count it for the source statistics
+function reportBad(v) {
+  P.bad[v.id] = 1; save('profile', P);
+  if (!NOLEARN[v.src]) srcSum(v.src, false);
+  var l = load('fbLog', []); l.unshift([Date.now(), (SRC[v.src] || {name:v.src}).name, v.title]); save('fbLog', l.slice(0, 100));
+  dropCard(v.id); toast('Danke – „' + v.title + '“ wird nicht mehr gezeigt');
+}
 /* Learning from failures: video servers are grouped by host + first path part (e.g. a geo-blocked
    ".../de/..." area of a CDN). A group that keeps failing on this device is skipped from then on,
    working groups are tried first. */
@@ -202,7 +256,8 @@ function webmaster(base, pre, thumbsize, embed) {
     var ord = MG_ORDER[o.order] || MG_ORDER['top-weekly'];
     var q = {search:o.query && o.query !== 'all' ? o.query : '', ordering:ord[0], period:ord[1], page:o.page || 1, thumbsize:thumbsize};
     return http(base + qs(q)).then(function (t) {
-      return (JSON.parse(t).videos || []).map(function (m) {
+      var d = JSON.parse(t);
+      return (d.videos || d.video || []).map(function (m) {
         m = m.video || m;
         var tags = (m.tags || []).map(function (x) { return x.tag_name || x; })
           .concat((m.categories || []).map(function (x) { return x.category || x; }));
@@ -217,7 +272,8 @@ function webmaster(base, pre, thumbsize, embed) {
 }
 var SRC = {
   ph:{name:'Pornhub', get:webmaster('https://www.pornhub.com/webmasters/search?', 'ph', 'large_hd', 'https://www.pornhub.com/embed/')},
-  rt:{name:'RedTube', get:webmaster('https://api.redtube.com/?data=redtube.Videos.searchVideos&output=json&', 'rt', 'big', 'https://embed.redtube.com/?id=')}
+  rt:{name:'RedTube', get:webmaster('https://api.redtube.com/?data=redtube.Videos.searchVideos&output=json&', 'rt', 'big', 'https://embed.redtube.com/?id=')},
+  yp:{name:'YouPorn', get:webmaster('https://www.youporn.com/api/webmasters/search?', 'yp', 'big', 'https://www.youporn.com/embed/')}
 };
 var srcOn = load('sources', {});
 function activeSrc() { return Object.keys(SRC).filter(function (k) { return srcOn[k] !== false; }); }
@@ -294,11 +350,17 @@ function dur(s) { s = +s; var m = Math.floor(s / 60); return m >= 60 ? Math.floo
 function toast(t) { var e = $('toast'); e.textContent = t; e.style.opacity = 1; clearTimeout(e.t); e.t = setTimeout(function () { e.style.opacity = 0; }, 1600); }
 function isFav(id) { return P.favs.some(function (v) { return v.id === id; }); }
 
+function tickNav() {
+  var c = $('nclock'), d = new Date(); if (!c) return;
+  c.textContent = d.toLocaleDateString('de-AT', {weekday:'short', day:'numeric', month:'numeric'}) + '  ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+}
+setInterval(tickNav, 15000);
 function renderNav() {
   var TABS = unlocked ? PRIV_TABS : PUB_TABS;
   $('nav').innerHTML = '<span class="logo">HomeTV</span>' + TABS.map(function (t) {
     return '<span class="tab f' + (t[0] === view ? ' on' : '') + '" data-v="' + t[0] + '">' + t[1] + '</span>';
-  }).join('');
+  }).join('') + '<span id="nclock"></span>';
+  tickNav();
   var items = [].slice.call($('nav').querySelectorAll('.tab'));
   items.forEach(function (e) { e._act = function () { go(e.dataset.v); }; });
   return {el:$('nav'), items:items, i:Math.max(0, TABS.findIndex(function (t) { return t[0] === view; })), nav:true};
@@ -356,7 +418,7 @@ function addRow(title, list, kind, spec) {
   var seen = {};
   if (!kind) {
     list.forEach(function (v) { seen[v.id] = 1; });
-    wantThumbs(list.slice(0, 10));
+    wantThumbs(list.slice(0, 10)); wantAdultCheck(list.slice(0, 12));
     list.some(function (v) { return v.default_thumb && v.default_thumb.src && noteTile(v.default_thumb.src); });
   }
   if (kind === 'cat') wantCatImgs(items, list);
@@ -421,6 +483,7 @@ function focus() {
       ln.strip.style.transform = 'translateX(' + (-Math.min(off, max)) + 'px)';
     }
   }
+  if (e._v && !NOLEARN[e._v.src]) wantAdultCheck(ln.items.slice(ln.i, ln.i + 10).map(function (x) { return x._v; }));
   if (e._v && (e._v.src === 'mv' || e._v.src === 'live')) wantThumbs(ln.items.slice(ln.i, ln.i + 10).map(function (x) { return x._v; }));
   clearTimeout(focus.dwell);
   if (e._v && !e._v._dwelt) focus.dwell = setTimeout(function (v) {
@@ -520,6 +583,8 @@ window.onPlayResult = function (id, ok, info) {
     save('profile', P);
   }
   if (src === 'mv' || src === 'yt') return;
+  srcSum(src, ok);
+  if (!ok) { nextAfter = nextInRow(id); dropCard(id); }
   // a source that keeps failing on this device is switched off automatically
   var st = (srcStats[src] = (srcStats[src] || []).concat([ok ? 1 : 0]).slice(-6));
   save('srcStats', srcStats);
@@ -531,6 +596,8 @@ window.onPlayResult = function (id, ok, info) {
 };
 window.onPlayerClosed = function (id, sec) {
   playingNow = false;
+  if (nextAfter) { var n = nextAfter; nextAfter = null; if (autoSkips++ < 4) { toast('Nicht abspielbar – nächstes Video …'); setTimeout(function () { play(n); }, 300); return; } }
+  autoSkips = 0;
   var v = lastPlayed; if (!v || v.id !== id) return;
   if (v.src === 'live') return;
   P.watched[id] = Math.max(P.watched[id] || 0, sec);
@@ -546,11 +613,10 @@ function learnCat(c) { P.tags[c[1]] = (P.tags[c[1]] || 0) + 0.5; save('profile',
 /* ---------- views ---------- */
 function go(v) {
   if (PRIV_VIEWS[v] && !unlocked) return showGate(v); // private area only after the gate
-  if (v === 'cams' && !camOk && !unlocked) return showGate('cams');
   if (v === 'priv') v = 'home';
   if (v === 'rand') return randomPlay();
   document.body.classList.toggle('dashv', v === 'dash');
-  view = v; ({dash:dash, news:news, fav:favs, learn:learnView, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
+  view = v; ({dash:dash, news:news, fav:favs, learn:learnView, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
 }
 function randomPlay() {
   toast('Suche einen Film für dich …');
@@ -917,10 +983,6 @@ function doCommand(text) {
     var ap = myApps().filter(function (a) { return q.indexOf(a[0].toLowerCase().split(' ')[0]) >= 0; })[0];
     if (ap) return A.launch(ap[1]);
   }
-  if (/kamera/.test(q)) {
-    var cl = load('cams', []), ci = cl.findIndex(function (c) { return q.indexOf(c.name.toLowerCase()) >= 0; });
-    return ci >= 0 ? openCam(ci) : go('cams');
-  }
   if (/kamin|feuer|natur|entspann/.test(q)) return go('relax');
   if (/youtube/.test(q)) return go('yt');
   if (/radio|sender|musik|jazz|lounge|klassik/.test(q) || allStations().some(function (st) { return q === st[0].toLowerCase(); })) {
@@ -1044,6 +1106,10 @@ function settings() {
       save('sources', srcOn); save('cache_home', null); settings();
     }];
   }), 'btn');
+  var sum = load('srcSum', {}), fb = load('fbLog', []);
+  addRow('Quellen-Statistik (läuft ✓ / geht nicht ✗) – ☰ „Geht nicht“ zählt mit', Object.keys(SRC).map(function (k) {
+    var x = sum[k] || [0, 0]; return [SRC[k].name + '  ' + x[0] + ' ✓  ' + x[1] + ' ✗' + (srcOn[k] === false ? ' (aus)' : ''), function () { }];
+  }).concat(fb.length ? [['Gemeldet: ' + fb.length + ' (zuletzt: ' + String(fb[0][2]).slice(0, 30) + ')', function () { }]] : []), 'btn');
   addRow('Filme', [[(disc ? '● ' : '○ ') + 'Diskret-Modus', function () {
       save('disc', !disc); document.body.classList.toggle('disc', !disc); settings(); }]]
     .concat([10, 20, 30].map(function (m) {
