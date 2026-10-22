@@ -51,6 +51,16 @@ schaltet frei, beim Zurück zu Home wird wieder gesperrt. Die öffentliche Suche
 - **Netzkino** in „Filme“: ganze Kinofilme gratis und legal (offizieller YouTube-Kanal).
 - **Deine Apps** am Startbild: Netflix, Prime Video, Disney+, Joyn … direkt starten.
 
+## Favoriten & Lernen
+**★ Favoriten**: deine Sendungen (vorbelegt: Pufpaffs Happy Hour, Oberösterreich heute, Servus Nachrichten, Der Wegscheider, Sommerhaus der Stars, Die Geissens) mit „🆕 Neu hinzugefügt“ (letzte 14 Tage, noch nicht gesehen), Gemerkte und Bestbewertete.
+Sendung hinzufügen per Namen oder bei jedem Film ☰ → „Sendung abonnieren“; ☰ ▼ = 1–5 Sterne.
+Sendungen privater Sender kommen über die YouTube-Suche am Gerät – nur Videos vom offiziellen Kanal.
+**🎓 Lernen**: planet schule, alpha Lernen, Quarks, Lesch & Co, nano, Planet Wissen, Wissen macht Ah!, simpleclub, MrWissen2go, Kurzgesagt.
+
+## Player
+Startet sofort; oben rechts steht immer, ob Pause, Lädt oder Springe. ◀ ▶ ▲ ▼ spulen mit kleinem Vorschaubild (bei normalen Videodateien),
+danach geht es von selbst weiter (OK = sofort). Pornhub/RedTube laufen im eigenen Player ohne Werbung, beste Qualität (720p+, kein 360p).
+
 ## Nachrichten
 Live-TV (ORF 2, ServusTV mit Servus Nachrichten, tagesschau24, DW English), ZIB, Tagesschau, heute journal, Tagesthemen, Weltspiegel
 und YouTube-Nachrichten (tagesschau, ZDFheute, DW News und BBC News auf Englisch mit Untertiteln). Ist die ServusTV-App installiert, gibt es einen Knopf dafür.

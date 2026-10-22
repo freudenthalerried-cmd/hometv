@@ -69,6 +69,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 .abtn.on{background:#5a1020}
 .abtn.foc{background:#fff;color:#000}
 #act .k{font-size:2.5vh;color:#888;margin-top:1vh}
+.card .neu{position:absolute;left:50%;top:.5vh;transform:translateX(-50%);background:#e50914;color:#fff;font-size:2vh;font-weight:800;padding:.1vh .6vw;border-radius:.4vh}
 .card .rk{position:absolute;left:.5vw;bottom:.6vh;background:#000c;font-size:2.12vh;padding:.2vh .5vw;border-radius:.4vh;color:#ffd54a}
 #upd{position:fixed;top:0;left:0;right:0;bottom:0;z-index:25;background:#000c;display:none;align-items:center;justify-content:center}
 #upd .box{width:60vw;padding:5vh 4vw;border-radius:2vh;background:#1b1b24;box-shadow:0 0 6vh #e5091455;text-align:center}
@@ -85,8 +86,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 #dfc{margin-top:1.5vh;display:flex;gap:2.4vw;font-size:3vh;color:#ccc}
 #dash .r{width:44vw}
 #dash h3{font-size:3vh;color:#e50914;margin-bottom:1vh}
-#dnews{list-style:none;font-size:2.88vh;line-height:1.45;color:#ddd}
-#dnews li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.6vh}
+#dslide{overflow:hidden;border-radius:1.2vh;background:#1c1c22;height:17vh}
+#dtrack{display:flex;height:100%;transition:transform .9s ease}
+#dtrack .ns{flex:0 0 100%;height:100%;display:flex;align-items:center;gap:1.4vw}
+#dtrack .ns i{flex:0 0 30.2vh;height:17vh;background:#333 center/cover no-repeat}
+#dtrack .ns b{font-size:3vh;line-height:1.3;color:#fff;padding-right:1.2vw;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#ddots{display:flex;gap:.6vw;justify-content:center;margin-top:1vh}
+#ddots i{width:1.1vh;height:1.1vh;border-radius:50%;background:#555}
+#ddots i.on{background:#e50914}
 .cat.tile{background:linear-gradient(135deg,#232338,#3a1424)}
 #np{position:fixed;right:3vw;bottom:3vh;background:#1b1b24;padding:1vh 1.6vw;border-radius:1vh;font-size:2.75vh;display:none;z-index:8}
 #gate{position:fixed;top:0;left:0;right:0;bottom:0;z-index:28;background:#0b0b10f2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2.5vh}
@@ -104,7 +111,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 <div id="hero"><div id="info"><h1 id="ht"></h1><div class="meta" id="hm"></div><div class="tags" id="hg"></div></div></div>
 <div id="nav"></div>
 <div id="dash"><div class="l"><div id="dclock"></div><div id="ddate"></div><div id="dwx">Wetter wird geladen …</div><div id="dfc"></div></div>
-  <div class="r"><h3>Nachrichten (ORF)</h3><ul id="dnews"></ul></div></div>
+  <div class="r"><h3>Nachrichten (ORF)</h3><div id="dslide"><div id="dtrack"></div></div><div id="ddots"></div></div></div>
 <div id="np"></div>
 <div id="gate"><div class="box"><h1>🔒 Privater Bereich</h1><div style="font-size:3vh;color:#999;margin-bottom:1.4vh">Bitte Passwort eingeben</div>
   <div id="gpw"></div><div id="gmsg"></div></div></div>
@@ -118,6 +125,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 <div id="act"><div class="box"><h1 id="at"></h1><div id="ar"></div><div class="k" id="ak"></div></div></div>
 <script src="home.js"></script>
 <script src="news.js"></script>
+<script src="shows.js"></script>
 <script src="rate.js"></script>
 <script>
 'use strict';
@@ -126,6 +134,7 @@ var MIN_SEC = 600;
 var BLOCK = /\b(underage|under age|minors?|child|children|kids?|preteen|pre-teen|jailbait|loli|lolita|shota|schoolgirls?|school girl|young girl|little girl|1[0-7] ?(yo|y\/o|y\.o|years? old|jahre)|rape|raped|forced|drugged|unconscious|passed out|sleeping|asleep|hidden cam|spy ?cam|voyeur)\b/i;
 var STOP = {porn:1, sex:1, xxx:1, hd:1, video:1, videos:1, eporner:1, 'hd sex':1, 'hd porn':1, porno:1, free:1, fuck:1, fucking:1, 'full movie':1};
 var CATS = [
+  ['Try not to cum','try not to cum'],['Compilations','compilation'],['Extrem','extreme'],
   ['Amateur','amateur'],['Paare','couple'],['Romantisch','romantic'],['Deutsch','german'],['MILF','milf'],
   ['Blond','blonde'],['Brünett','brunette'],['Rothaarig','redhead'],['Lesbisch','lesbian'],['Dreier','threesome'],
   ['POV','pov'],['Massage','massage'],['Outdoor','outdoor'],['Dessous','lingerie'],['Große Brüste','big tits'],
@@ -295,11 +304,11 @@ function renderNav() {
 function cardHTML(v) {
   var w = P.watched[v.id], pct = w ? Math.min(100, w / v.length_sec * 100) : 0;
   if (v.src === 'mv' || v.src === 'live') return '<div class="card f mv" style="background:' + (v.default_thumb.src ? thumbBg(v).replace(/"/g, "'") : 'linear-gradient(135deg,' + (v.src === 'live' ? '#b3122b' : MV_COLORS[v.channel] || '#444') + ',#111)') + '">' +
-    '<span class="ch">' + esc(v.channel) + '</span><div class="mt">' + esc(v.title) + '</div><span class="d">' + (v.src === 'live' ? '● LIVE' : dur(v.length_sec)) + '</span>' +
+    '<span class="ch">' + esc(v.channel) + '</span>' + (v.neu ? '<span class="neu">NEU</span>' : '') + '<div class="mt">' + esc(v.title) + '</div><span class="d">' + (v.src === 'live' ? '● LIVE' : dur(v.length_sec)) + '</span>' +
     (isFav(v.id) ? '<span class="fav">♥</span>' : '') + badge(v) + (pct ? '<span class="w" style="width:' + pct + '%"></span>' : '') + '</div>';
   return '<div class="card f"><img src="' + esc(v.default_thumb && v.default_thumb.src || '') + '">' +
     (v.length_sec ? '<span class="d">' + dur(v.length_sec) + '</span>' : '') +
-    '<span class="s">' + (v.src === 'yt' ? 'YouTube' : (SRC[v.src] || {name:'Eporner'}).name) + '</span>' + (isFav(v.id) ? '<span class="fav">♥</span>' : '') + badge(v) +
+    (v.neu ? '<span class="neu">NEU</span>' : '') + '<span class="s">' + (v.src === 'yt' ? 'YouTube' : (SRC[v.src] || {name:'Eporner'}).name) + '</span>' + (isFav(v.id) ? '<span class="fav">♥</span>' : '') + badge(v) +
     (pct ? '<span class="w" style="width:' + pct + '%"></span>' : '') + '<div class="t">' + esc(v.title) + '</div></div>';
 }
 // spec = serializable description of the row ({query, order, page} or {fy:1}); lets rows load endlessly
@@ -534,7 +543,7 @@ function go(v) {
   if (v === 'priv') v = 'home';
   if (v === 'rand') return randomPlay();
   document.body.classList.toggle('dashv', v === 'dash');
-  view = v; ({dash:dash, news:news, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
+  view = v; ({dash:dash, news:news, fav:favs, learn:learnView, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, cams:cams, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
 }
 function randomPlay() {
   toast('Suche einen Film für dich …');
@@ -618,9 +627,9 @@ function mvPost(body) {
   });
 }
 function mvItem(r) {
-  // HD first, then normal and low quality; https before http
+  // HD first, then normal quality (no low 360p copy); https before http
   var urls = [];
-  [r.url_video_hd, r.url_video, r.url_video_low].forEach(function (u) {
+  [r.url_video_hd, r.url_video].forEach(function (u) {
     if (!u) return;
     [u.replace(/^http:/, 'https:'), u].forEach(function (x) { if (urls.indexOf(x) < 0) urls.push(x); });
   });
@@ -645,7 +654,10 @@ function movies(o) {
         return v.embed && mvGood(v) && !P.bad[v.id] && !v.urls.every(patBad); // skip films only on servers that never work here
       });
       l.sort(function (a, b) { return (b.hd ? 1 : 0) - (a.hd ? 1 : 0); }); // the HD copy wins when a film comes twice
-      return uniq(l).sort(function (a, b) { return (b.date || 0) - (a.date || 0); });
+      // news and shows: every day has the same title, so only the same broadcast (same hour) counts as a duplicate
+      var seen = {}, short = o.min && o.min < 2400;
+      l = short ? l.filter(function (v) { var k = v.title + '|' + Math.round(v.date / 3600); return seen[k] ? false : (seen[k] = 1); }) : uniq(l);
+      return l.sort(function (a, b) { return (b.date || 0) - (a.date || 0); });
     })
     .then(playable)
     .catch(function () { return []; });
@@ -858,6 +870,8 @@ var FILLER = {zeig:1, zeige:1, mir:1, uns:1, spiel:1, spiele:1, start:1, starte:
   einen:1, der:1, die:1, das:1, den:1, dem:1, mit:1, von:1, kategorie:1, film:1, filme:1, abspielen:1, öffne:1, ich:1, will:1, möchte:1, sehen:1};
 function doCommand(text) {
   var q = text.toLowerCase().replace(/[.!?,]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (/favorit|meine sendung/.test(q)) return go('fav');
+  if (/lern|schule|erklär/.test(q)) return go('learn');
   if (/nachricht|news|zib|tagesschau|servus/.test(q)) return go('news');
   if (/wetter|uhrzeit/.test(q)) return go('dash');
   if (/comedy|kabarett|lustig|witz|satire/.test(q)) return go('comedy');

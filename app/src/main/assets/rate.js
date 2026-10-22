@@ -60,7 +60,7 @@ function favToggle(v) {
   save('profile', P);
   refreshCard(v);
 }
-function badge(v) { return ''; } // ratings are no longer shown
+function badge(v) { var n = P.rate && P.rate[v.id]; return n ? '<span class="rk">★' + n + '</span>' : ''; }
 function refreshCard(v) {
   [].slice.call(document.querySelectorAll('.card')).forEach(function (e) {
     if (!e._v || e._v.id !== v.id) return;
@@ -76,15 +76,17 @@ function refreshCard(v) {
 function openAct(v, rateOnly) {
   actV = v; actOn = true;
   var starsRow = [1, 2, 3, 4, 5].map(function (n) { return ['★' + n, function () { closeAct(); rateVideo(v, n); }]; });
-  // no manual rating any more: taste comes from viewing behaviour only
+  // stars are optional; viewing behaviour keeps teaching the profile either way
+  var show = v.src === 'mv' && v.topic ? {n:v.topic, mv:String(v.topic).toLowerCase(), ch:String(v.channel || '').toLowerCase()}
+    : v.src === 'yt' && v.chId ? {n:v.channel, cid:v.chId} : null;
   actRows = rateOnly ? [starsRow] : [[
     ['▶ Abspielen', function () { closeAct(); play(v); }],
     ['🔎 Ähnliche', function () { closeAct(); openSimilar(v); }],
     [isFav(v.id) ? '♥ Entfernen' : '♥ Merken', function () { closeAct(); favToggle(v); }]
-  ]];
+  ].concat(show && !isShow(show.n) ? [['⭐ Sendung abonnieren', function () { closeAct(); addShow(show); }]] : []), starsRow];
   actR = 0; actI = rateOnly ? 3 : 0;
   $('at').textContent = rateOnly ? 'Wie hat dir „' + v.title + '“ gefallen?' : v.title;
-  $('ak').textContent = rateOnly ? '◀ ▶ Sterne wählen · OK = bewerten · Zurück = überspringen' : '◀ ▶ ▲ ▼ wählen · OK · Zurück = schließen';
+  $('ak').textContent = rateOnly ? '◀ ▶ Sterne wählen · OK = bewerten · Zurück = überspringen' : '◀ ▶ ▲ ▼ wählen · ▼ = mit Sternen bewerten · OK · Zurück = schließen';
   drawAct();
   $('act').style.display = 'flex';
 }

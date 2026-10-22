@@ -424,6 +424,8 @@ public class MainActivity extends Activity {
                     c.setConnectTimeout(8000);
                     c.setReadTimeout(12000);
                     c.setRequestProperty("User-Agent", UA);
+                    // YouTube search pages: decline the EU cookie banner, otherwise only the consent page comes back
+                    if (url.startsWith("https://www.youtube.com/results")) c.setRequestProperty("Cookie", "SOCS=CAI");
                     try (InputStream in = c.getInputStream()) { body = new String(read(in), "UTF-8"); }
                     ok = c.getResponseCode() == 200;
                 } catch (Exception ex) {

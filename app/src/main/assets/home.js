@@ -3,7 +3,7 @@
    area behind a decoy password prompt (press OK three times quickly). Uses helpers from index.html at runtime. */
 var unlocked = false;
 var camOk = false; // cameras sit behind the same 3× OK gate, separately from the private area
-var PUB_TABS = [['dash','Home'],['movies','Filme'],['news','News'],['comedy','Comedy'],['yt','YouTube'],['cams','Kameras'],['radio','Musik'],['search','🎤 Suche'],['priv','Privat'],['set','⚙']];
+var PUB_TABS = [['dash','Home'],['fav','★ Favoriten'],['movies','Filme'],['news','News'],['yt','YouTube'],['learn','Lernen'],['radio','Musik'],['search','🎤 Suche'],['priv','Privat'],['set','⚙']];
 var PRIV_TABS = [['dash','← Home'],['home','Für dich'],['rand','Zufall'],['cats','Kategorien'],['search','🎤 Suche'],['mine','Liste'],['games','Spiele'],['set','⚙']];
 var PRIV_VIEWS = {priv:1, home:1, rand:1, cats:1, cat:1, mine:1, games:1};
 
@@ -64,26 +64,50 @@ function loadWeather() {
   }).catch(function () { $('dwx').textContent = 'Wetter gerade nicht verfügbar'; });
 }
 
+/* headlines slide in from the right every 7 s, with the article's picture (og:image) */
+var newsT = 0, newsI = 0;
 function loadNews() {
   http('https://rss.orf.at/news.xml').then(function (t) {
     var doc = new DOMParser().parseFromString(t, 'text/xml');
-    var items = [].slice.call(doc.getElementsByTagName('item')).slice(0, 6);
-    var ul = $('dnews'); ul.innerHTML = '';
-    items.forEach(function (it) {
-      var ti = it.getElementsByTagName('title')[0];
-      if (!ti) return;
-      var li = document.createElement('li'); li.textContent = ti.textContent; ul.appendChild(li);
+    var tag = function (el, n) { var x = el.getElementsByTagNameNS('*', n)[0]; return x ? x.textContent : ''; };
+    var items = [].slice.call(doc.getElementsByTagNameNS('*', 'item')).slice(0, 8).map(function (it) {
+      var enc = it.getElementsByTagNameNS('*', 'enclosure')[0] || it.getElementsByTagNameNS('*', 'content')[0];
+      return {t:tag(it, 'title'), l:tag(it, 'link'), img:enc ? enc.getAttribute('url') || '' : ''};
+    }).filter(function (x) { return x.t; });
+    $('dtrack').innerHTML = items.map(function (x) { return '<div class="ns"><i></i><b></b></div>'; }).join('');
+    var sl = [].slice.call($('dtrack').children);
+    items.forEach(function (x, i) {
+      sl[i].querySelector('b').textContent = x.t;
+      var pic = function (u) { if (/^https:\/\//.test(u)) sl[i].querySelector('i').style.backgroundImage = 'url("' + u.replace(/"/g, '') + '")'; };
+      if (x.img) pic(x.img);
+      else if (/^https:\/\//.test(x.l)) http(x.l).then(function (h) {
+        pic(((h.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)/i) || [])[1] || '').replace(/&amp;/g, '&'));
+      }).catch(function () { });
     });
-  }).catch(function () { $('dnews').innerHTML = ''; });
+    $('ddots').innerHTML = items.map(function () { return '<i></i>'; }).join('');
+    newsI = 0; slideNews(0);
+    clearInterval(newsT);
+    newsT = setInterval(function () { if (view === 'dash' && items.length) slideNews((newsI + 1) % items.length); }, 7000);
+  }).catch(function () { $('dtrack').innerHTML = ''; });
+}
+function slideNews(i) {
+  newsI = i;
+  $('dtrack').style.transform = 'translateX(' + (-100 * i) + '%)';
+  [].slice.call($('ddots').children).forEach(function (d, k) { d.className = k === i ? 'on' : ''; });
 }
 
 function dash() {
   unlocked = false; camOk = false; // back home = everything locked again
   begin();
   tickClock(); loadWeather(); loadNews();
-  addRow('', [['🎬 Filme', function () { go('movies'); }], ['📰 Nachrichten', function () { go('news'); }], ['😂 Comedy', function () { go('comedy'); }], ['📷 Kameras', function () { go('cams'); }],
+  addRow('', [['★ Favoriten', function () { go('fav'); }], ['🎬 Filme', function () { go('movies'); }], ['📰 Nachrichten', function () { go('news'); }], ['🎓 Lernen', function () { go('learn'); }], ['😂 Comedy', function () { go('comedy'); }], ['📷 Kameras', function () { go('cams'); }],
     ['🎵 Musik', function () { go('radio'); }], ['▶ YouTube', function () { go('yt'); }], ['🌿 Entspannung', function () { go('relax'); }], ['🎤 Suche', function () { voiceSearch(); }],
     ['🔒 Privat', function () { go('priv'); }], ['⚙️ Einstellungen', function () { go('set'); }]], 'tile');
+  newCount().then(function (n) { // how many new episodes of the favourite shows
+    if (!n || view !== 'dash') return;
+    var t = [].slice.call(document.querySelectorAll('.tile')).filter(function (e) { return e.textContent === '★ Favoriten'; })[0];
+    if (t) t.textContent = '★ Favoriten · ' + n + ' neu';
+  });
   var apps = myApps();
   if (apps.length) addRow('Deine Apps', apps.map(function (a) { return ['▶ ' + a[0], function () { stopRadio(); A.launch(a[1]); }]; }), 'tile');
   finish();
