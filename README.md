@@ -59,7 +59,6 @@ Musik nach Stimmung (SomaFM, Radio Swiss – werbefrei; Liste in content.json "m
 In den Paar-Spielen: die App erzählt, ihr entscheidet mit ◀ ▶, mit Aufgaben und Timer (Berghütte, Hotelzimmer, Masseur-Abend).
 Weitere Geschichten in content.json → games.stories.
 
-## Bewerten & Ähnliche
-☰ (Menü-Taste) auf einem Video: Abspielen · 👍 Gefällt mir · 🔎 Ähnliche · ♥ Merken · ★1–★5.
-Nach ≥ 2 Minuten Schauen fragt die App nach Sternen. Bewertungen/Likes steuern „Für dich“ und die Reihenfolge
-(Privat: nach Tags, Filme: nach Sendung/Thema und Sender – getrennte Profile).
+## Lernen & Ähnliche
+Kein manuelles Bewerten: die App lernt aus dem Verhalten – fast ganz geschaut = stark +, früh abgebrochen = −,
+länger in der Vorschau angesehen = leicht +, Suchen. ☰ auf einem Video: Abspielen · Ähnliche · Merken.

@@ -43,7 +43,7 @@ public class CameraActivity extends Activity {
         root.addView(view, new FrameLayout.LayoutParams(-1, -1));
         label = new TextView(this);
         label.setTextColor(Color.WHITE);
-        label.setTextSize(16);
+        label.setTextSize(20);
         label.setBackgroundColor(0x99000000);
         label.setPadding(24, 12, 24, 12);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);

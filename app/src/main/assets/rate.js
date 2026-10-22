@@ -60,10 +60,7 @@ function favToggle(v) {
   save('profile', P);
   refreshCard(v);
 }
-function badge(v) {
-  var r = P.rate && P.rate[v.id], l = P.likes && P.likes[v.id];
-  return r || l ? '<span class="rk">' + (l ? '👍' : '') + (r ? ' ★' + r : '') + '</span>' : '';
-}
+function badge(v) { return ''; } // ratings are no longer shown
 function refreshCard(v) {
   [].slice.call(document.querySelectorAll('.card')).forEach(function (e) {
     if (!e._v || e._v.id !== v.id) return;
@@ -79,12 +76,12 @@ function refreshCard(v) {
 function openAct(v, rateOnly) {
   actV = v; actOn = true;
   var starsRow = [1, 2, 3, 4, 5].map(function (n) { return ['★' + n, function () { closeAct(); rateVideo(v, n); }]; });
+  // no manual rating any more: taste comes from viewing behaviour only
   actRows = rateOnly ? [starsRow] : [[
     ['▶ Abspielen', function () { closeAct(); play(v); }],
-    [P.likes && P.likes[v.id] ? '👍 Gefällt mir ✓' : '👍 Gefällt mir', function () { closeAct(); likeVideo(v); }],
     ['🔎 Ähnliche', function () { closeAct(); openSimilar(v); }],
     [isFav(v.id) ? '♥ Entfernen' : '♥ Merken', function () { closeAct(); favToggle(v); }]
-  ], starsRow];
+  ]];
   actR = 0; actI = rateOnly ? 3 : 0;
   $('at').textContent = rateOnly ? 'Wie hat dir „' + v.title + '“ gefallen?' : v.title;
   $('ak').textContent = rateOnly ? '◀ ▶ Sterne wählen · OK = bewerten · Zurück = überspringen' : '◀ ▶ ▲ ▼ wählen · OK · Zurück = schließen';

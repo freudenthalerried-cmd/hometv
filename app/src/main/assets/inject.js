@@ -9,7 +9,7 @@
     'width:100vw!important;height:100vh!important;max-width:none!important;z-index:2147483646!important;' +
     'object-fit:contain!important;background:#000!important}' +
     '#__osd{visibility:visible!important;position:fixed;left:50%;bottom:8vh;transform:translateX(-50%);' +
-    'z-index:2147483647;font:600 3.2vh sans-serif;color:#fff;background:rgba(0,0,0,.7);padding:1.2vh 2.4vh;' +
+    'z-index:2147483647;font:600 4vh sans-serif;color:#fff;background:rgba(0,0,0,.7);padding:1.2vh 2.4vh;' +
     'border-radius:1vh;opacity:0;transition:opacity .3s}' +
     '#__bar{visibility:visible!important;position:fixed;left:0;bottom:0;height:.6vh;background:#e50914;' +
     'z-index:2147483647;opacity:0;transition:opacity .3s}';

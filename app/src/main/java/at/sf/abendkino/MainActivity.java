@@ -71,6 +71,7 @@ public class MainActivity extends Activity {
     private String playingUrl = "";
     private String directHtml = null; // set while a broadcaster film plays in our own <video> page
     private boolean lenient = false;  // second attempt with the normal instead of the strict ad blocker
+    private boolean noBlock = false;  // third attempt: players that wait for their ad (Pornhub) only start without blocking
     private String lastInfo = "\"\""; // JSON string "state|url" from the player page
     // Player progress: every second the page reports its state; the status line shows it until the video runs.
     // No picture after 15 s (20 s for direct films): one retry with the lenient blocker, then a clear error.
@@ -96,7 +97,11 @@ public class MainActivity extends Activity {
                 if (tick >= limit) {
                     if (directHtml == null && strict && !lenient) {
                         lenient = true; tick = 0;
-                        showStatus("Zweiter Versuch ohne strengen Werbeblocker …");
+                        showStatus("Zweiter Versuch mit normalem Werbeblocker …");
+                        player.loadUrl(playingUrl);
+                    } else if (directHtml == null && !noBlock) {
+                        noBlock = true; tick = 0;
+                        showStatus("Dritter Versuch ohne Werbeblocker (evtl. kurze Werbung) …");
                         player.loadUrl(playingUrl);
                     } else { fail("Video startet nicht"); return; }
                 } else if (o == null || "novideo".equals(st) || st.isEmpty()) {
@@ -170,6 +175,8 @@ public class MainActivity extends Activity {
         // report the full TV width to the page so adaptive players choose a higher quality
         player.getSettings().setUseWideViewPort(true);
         player.getSettings().setLoadWithOverviewMode(true);
+        // embedded players keep their session in third-party cookies
+        android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(player, true);
         player.getSettings().setJavaScriptCanOpenWindowsAutomatically(false);
         player.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -213,7 +220,7 @@ public class MainActivity extends Activity {
         root.addView(player, new FrameLayout.LayoutParams(-1, -1));
         status = new TextView(this);
         status.setTextColor(Color.WHITE);
-        status.setTextSize(22);
+        status.setTextSize(27);
         status.setGravity(android.view.Gravity.CENTER);
         status.setBackgroundColor(0xCC000000);
         status.setPadding(48, 28, 48, 28);
@@ -226,7 +233,7 @@ public class MainActivity extends Activity {
         String h = u.getHost() == null ? "" : u.getHost().toLowerCase();
         String url = u.toString().toLowerCase();
         if (MEDIA.matcher(url).find()) return false;
-        if (directHtml != null) return false; // broadcaster CDNs, no ads
+        if (directHtml != null || noBlock) return false; // broadcaster CDNs / last attempt: nothing blocked
         if (strict && !lenient) {
             for (String a : ALLOWED) if (h.equals(a) || h.endsWith("." + a)) return false;
             return true;
@@ -263,7 +270,7 @@ public class MainActivity extends Activity {
         playingHost = parts.length >= 2 ? parts[parts.length - 2] + "." + parts[parts.length - 1] : String.valueOf(h);
         playingUrl = url;
         directHtml = null;
-        lenient = false;
+        lenient = false; noBlock = false;
         WebView p = player();
         p.onResume();
         p.loadUrl(url);
@@ -277,7 +284,7 @@ public class MainActivity extends Activity {
         playingId = id;
         playStart = start;
         playingHost = "";
-        lenient = false;
+        lenient = false; noBlock = false;
         directHtml = "<!doctype html><html><head><meta name=viewport content='width=device-width'>"
                 + "<script src='https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js'></script></head>"
                 + "<body style='margin:0;background:#000'><video id=v autoplay playsinline style='width:100vw;height:100vh'></video><script>"
