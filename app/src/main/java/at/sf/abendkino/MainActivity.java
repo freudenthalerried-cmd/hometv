@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
                     + "magsrv|ad-maven|clickadu|hilltopads|trafficstars|adspyglass|adsterra|onclick|pushnami|"
                     + "dtscout|mgid|taboola|outbrain|syndication|popunder|adserver|^ads?\\.|\\.ads?\\.)");
     // Strict mode: only the video sites themselves and their CDNs may load anything.
-    private static final String[] ALLOWED = {"pornhub.com", "phncdn.com", "redtube.com", "rdtcdn.com", "youporn.com", "ypncdn.com",
+    private static final String[] ALLOWED = {"pornhub.com", "phncdn.com", "redtube.com", "rdtcdn.com", "xvideos.com", "xvideos-cdn.com", "xnxx.com", "xnxx-cdn.com",
             "cdnjs.cloudflare.com", "ajax.googleapis.com", "jsdelivr.net",
             "youtube-nocookie.com", "youtube.com", "ytimg.com", "googlevideo.com", "ggpht.com", "gstatic.com",
             "akamaihd.net", "akamaized.net", "zdf.de", "ard.de", "ardmediathek.de", "arte.tv", "3sat.de", "orf.at", "srf.ch"};

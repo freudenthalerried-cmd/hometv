@@ -44,8 +44,8 @@
     osd.t = setTimeout(function () { osd.style.opacity = 0; bar.style.opacity = 0; }, 1800);
   }
 
-  /* Pornhub / RedTube: their player shows ads before and during the video. The page already lists the video
-     files (mediaDefinitions), so the best one (720p and up where offered) plays in a plain <video> instead. */
+  /* Pornhub / RedTube / XVideos / XNXX: their players show ads before and during the video. The page already lists
+     the video files, so the best one plays in a plain <video> instead. */
   function mgDefs() {
     for (var k in window) {
       try { var o = window[k]; if (/^flashvars|^playervars/i.test(k) && o && o.mediaDefinitions) return o.mediaDefinitions; } catch (x) { }
@@ -63,34 +63,72 @@
     return null;
   }
   function qn(d) { return parseInt(Array.isArray(d.quality) ? 0 : d.quality) || 0; }
-  function own(url, hls) {
-    [].slice.call(document.querySelectorAll('video')).forEach(function (x) { try { x.pause(); x.removeAttribute('src'); x.load(); } catch (e) { } });
-    document.documentElement.className += ' akown';
+  function abs(u) { try { return new URL(u, location.href).href; } catch (x) { return u; } }
+  /* Our own player gets a list of files [url, isHls], best first. A file that does not run within 7 s (or fails)
+     is replaced by the next one, so one dead copy does not stop the video. */
+  var cands = [], ci = -1, hlsObj = null, wd = 0;
+  function own(list) { cands = list; ci = -1; nextCand(); }
+  function nextCand() {
+    clearTimeout(wd);
+    if (++ci >= cands.length) { window.__ak_state = 'error'; return; }
+    var url = cands[ci][0], hls = cands[ci][1];
+    [].slice.call(document.querySelectorAll('video')).forEach(function (x) { if (x.id !== '__pv') try { x.pause(); x.removeAttribute('src'); x.load(); } catch (e) { } });
+    if (hlsObj) { try { hlsObj.destroy(); } catch (x) { } hlsObj = null; }
+    var old = document.getElementById('__own'); if (old) old.remove();
+    if (!/akown/.test(document.documentElement.className)) document.documentElement.className += ' akown';
     var e = document.createElement('video'); e.id = '__own'; e.autoplay = true; e.setAttribute('playsinline', '');
     document.body.appendChild(e);
-    window.__ak_url = url;
+    window.__ak_url = url; window.__ak_state = 'loading';
     started = false; clearInterval(iv); iv = setInterval(tick, 500); // start (and resume) our own video
+    e.addEventListener('error', function () { if (!started) nextCand(); });
+    wd = setTimeout(function () { if (!(e.currentTime > 0.3)) nextCand(); }, 7000);
     if (hls && !e.canPlayType('application/vnd.apple.mpegurl')) {
-      var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
-      sc.onload = function () { var h = new Hls(); h.loadSource(url); h.attachMedia(e); };
-      document.documentElement.appendChild(sc);
+      var go = function () {
+        hlsObj = new Hls();
+        hlsObj.on(Hls.Events.ERROR, function (ev, d) { if (d.fatal && !started) nextCand(); });
+        hlsObj.on(Hls.Events.MANIFEST_PARSED, function () { // start with the best picture up to 1080p
+          var best = -1; hlsObj.levels.forEach(function (l, k) { if (l.height <= 1080 && (best < 0 || l.height > hlsObj.levels[best].height)) best = k; });
+          if (best >= 0) hlsObj.nextLevel = best;
+        });
+        hlsObj.loadSource(url); hlsObj.attachMedia(e);
+      };
+      if (window.Hls) go();
+      else {
+        var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+        sc.onload = go; sc.onerror = function () { nextCand(); };
+        document.documentElement.appendChild(sc);
+      }
     } else e.src = url;
   }
-  setTimeout(function () { // after the start-up code below is set up
-  var defs = /pornhub|redtube/.test(location.hostname) && mgDefs();
-  if (defs && defs.length) {
-    var hl = defs.filter(function (d) { return d.format === 'hls' && typeof d.videoUrl === 'string' && d.videoUrl; }).sort(function (a, b) { return qn(b) - qn(a); });
-    var mp = defs.filter(function (d) { return d.format === 'mp4' && typeof d.videoUrl === 'string' && d.videoUrl; });
-    var useHls = function () { if (hl.length) own(hl[0].videoUrl, true); };
-    if (mp.length && (mp[0].remote || /get_media/.test(mp[0].videoUrl))) {
-      fetch(mp[0].videoUrl, {credentials:'include'}).then(function (r) { return r.json(); }).then(function (l) {
-        l = (Array.isArray(l) ? l : []).filter(function (x) { return x.videoUrl; }).sort(function (a, b) { return qn(b) - qn(a); });
-        if (l.length && (qn(l[0]) >= 480 || !hl.length)) own(l[0].videoUrl, false); else useHls();
-      }).catch(useHls);
-    } else if (mp.length) own(mp.sort(function (a, b) { return qn(b) - qn(a); })[0].videoUrl, false);
-    else useHls();
+  // the files this page offers, best quality first (mp4 before HLS at the same quality: it has the seek preview)
+  function collect(done) {
+    var host = location.hostname;
+    if (/pornhub|redtube/.test(host)) {
+      var defs = mgDefs() || [], direct = [], remote = [];
+      defs.forEach(function (d) {
+        if (typeof d.videoUrl !== 'string' || !d.videoUrl) return;
+        var u = abs(d.videoUrl);
+        if (d.remote || /get_media|\/media\/(hls|mp4)/.test(u)) remote.push([u, d.format === 'hls']); else direct.push([u, d.format === 'hls', qn(d)]);
+      });
+      Promise.all(remote.map(function (r) { // these answer with the list of every quality
+        return fetch(r[0], {credentials:'include'}).then(function (x) { return x.json(); }).then(function (l) {
+          return (Array.isArray(l) ? l : []).filter(function (x) { return x.videoUrl; })
+            .map(function (x) { return [abs(x.videoUrl), r[1] || /m3u8/.test(x.videoUrl), qn(x)]; });
+        }).catch(function () { return []; });
+      })).then(function (ls) {
+        var all = direct.concat.apply(direct, ls);
+        all.sort(function (a, b) { return b[2] - a[2] || (a[1] ? 1 : 0) - (b[1] ? 1 : 0); });
+        done(all.map(function (x) { return [x[0], x[1]]; }));
+      });
+    } else if (/xvideos|xnxx/.test(host)) {
+      var t = document.documentElement.innerHTML, c = [], m;
+      if ((m = /setVideoHLS\(\s*['"]([^'"]+)/.exec(t))) c.push([abs(m[1]), true]);
+      if ((m = /setVideoUrlHigh\(\s*['"]([^'"]+)/.exec(t))) c.push([abs(m[1]), false]);
+      if ((m = /setVideoUrlLow\(\s*['"]([^'"]+)/.exec(t))) c.push([abs(m[1]), false]);
+      done(c);
+    } else done([]);
   }
-  }, 0);
+  setTimeout(function () { collect(function (c) { if (c.length) own(c); }); }, 0); // after the start-up code below
 
   // Start playback automatically and pick the highest quality the player offers.
   var started = false, userPaused = false, clicks = 0;
@@ -202,7 +240,7 @@
   var watched = null;
   window.__ak_info = function () {
     var e = v(), b = 0;
-    if (e && e !== watched) { watched = e; e.addEventListener('error', function () { if (!started) window.__ak_state = 'error'; }); }
+    if (e && e !== watched && e.id !== '__own') { watched = e; e.addEventListener('error', function () { if (!started) window.__ak_state = 'error'; }); }
     try { if (e && e.buffered.length && e.duration) b = Math.round(e.buffered.end(e.buffered.length - 1) / e.duration * 100); } catch (x) { }
     return {s:window.__ak_state === 'playing' || window.__ak_state === 'error' ? window.__ak_state : (e ? 'found' : 'novideo'),
       cur:e ? e.currentTime : 0, buf:b, url:window.__ak_url || ''};

@@ -60,7 +60,7 @@ Sendungen privater Sender kommen über die YouTube-Suche am Gerät – nur Video
 ## Player
 Privat-Videos werden vorab geprüft (gelöscht, privat, gesperrt, Kopierschutz → ausgeblendet). Startet eines nicht, kommt nach max. ~20 s automatisch das nächste der Reihe. ☰ → „⚠ Geht nicht“ meldet ein Video; Einstellungen zeigen die Quellen-Statistik. Der Selbsttest (Einstellungen, täglich auch automatisch) prüft jede Kategorie bis zur Videodatei – direkt am Fire TV.
 Startet sofort; oben rechts steht immer, ob Pause, Lädt oder Springe. ◀ ▶ ▲ ▼ spulen mit kleinem Vorschaubild (bei normalen Videodateien),
-danach geht es von selbst weiter (OK = sofort). Pornhub/RedTube/YouPorn laufen im eigenen Player ohne Werbung, beste Qualität (720p+, kein 360p).
+danach geht es von selbst weiter (OK = sofort). Pornhub, RedTube, XVideos und XNXX laufen im eigenen Player ohne Werbung (fällt eine Datei aus, nimmt er automatisch die nächste), beste Qualität (720p+, kein 360p).
 
 ## Nachrichten
 Live-TV (ORF 2, ServusTV mit Servus Nachrichten, tagesschau24, DW English), ZIB, Tagesschau, heute journal, Tagesthemen, Weltspiegel
