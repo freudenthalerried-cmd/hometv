@@ -374,10 +374,11 @@ function tube(pre, base, path, linkRe) {
         return {id:pre + ':' + l[2], src:pre, title:tit, keywords:(q + ' ' + tit).toLowerCase().split(/\W+/).filter(function (w) { return w.length > 3; }).join(', '),
           views:0, rate:'0', length_sec:(d ? +d[1] * 3600 : 0) + (m ? +m[1] * 60 : 0) + (sc ? +sc[1] : 0), embed:base + l[1],
           default_thumb:{src:im ? im[1] : ''}, thumbs:[]};
-      }).filter(function (v) { return v && v.title; });
+      }).filter(function (v) { return v && v.title && !FOREIGN.test(v.title); });
     });
   };
 }
+var FOREIGN = /[\u0400-\u04FF\u0600-\u06FF\u0E00-\u0E7F\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/; // Cyrillic, Arabic, Thai, Japanese, Chinese, Korean titles
 var srcOn = load('sources', {});
 function activeSrc() { return Object.keys(SRC).filter(function (k) { return srcOn[k] !== false; }); }
 

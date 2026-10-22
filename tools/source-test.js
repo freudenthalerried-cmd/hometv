@@ -76,6 +76,13 @@ async function play(browser, v, strict) {
   const app = await appPage(browser);
   const names = await app.evaluate(() => Object.keys(SRC).map(k => [k, SRC[k].name]));
   const rows = [], apiErr = {};
+  if (process.env.DEBUG) { // why XVideos finds nothing / where XNXX pages redirect to
+    for (const u of ['https://www.xvideos.com/?k=couple&sort=rating&p=0', 'https://www.xvideos.com/?k=couple']) {
+      const r = await get(u); const t = await r.text();
+      console.log('DEBUG XV', r.status, r.url, 'len', t.length, 'thumb-block:', t.split('thumb-block').length - 1, 'video.:', (t.match(/href="\/video\.?[a-z0-9]+\//g) || []).length);
+      const i = t.indexOf('thumb-block'); if (i >= 0) console.log('DEBUG XV BLOCK', t.slice(i, i + 900).replace(/\s+/g, ' '));
+    }
+  }
   for (const [k] of names) {
     const vids = [], seen = {};
     for (const q of QUERIES) {
@@ -88,6 +95,7 @@ async function play(browser, v, strict) {
       const pre = await app.evaluate(v => adultProbe(v).catch(e => 'Fehler: ' + e), v);
       let pl = {ok: false, why: 'Vorab-Prüfung: ' + pre};
       if (pre !== 'bad') { pl = await play(browser, v, true); if (!pl.ok) { const p2 = await play(browser, v, false); p2.second = true; if (p2.ok) pl = p2; } }
+      if (process.env.DEBUG && /REDIRECTS/.test(pl.why || '')) { let u = v.embed; for (let i = 0; i < 5; i++) { const r = await fetch(u, {headers: {'User-Agent': UA}, redirect: 'manual'}).catch(() => null); if (!r) break; console.log('DEBUG REDIR', r.status, u.slice(0, 90), '->', (r.headers.get('location') || '').slice(0, 90), (r.headers.get('set-cookie') || '').slice(0, 60)); if (!r.headers.get('location')) break; u = new URL(r.headers.get('location'), u).href; } }
       rows.push({...v, pre, play: pl});
       console.log(k, v.id, v.sec + 's', 'thumb:' + v.thumb, 'pre:' + pre, JSON.stringify(pl));
     }

@@ -88,7 +88,7 @@
         hlsObj.on(Hls.Events.ERROR, function (ev, d) { if (d.fatal && !started) nextCand(); });
         hlsObj.on(Hls.Events.MANIFEST_PARSED, function () { // start with the best picture up to 1080p
           var best = -1; hlsObj.levels.forEach(function (l, k) { if (l.height <= 1080 && (best < 0 || l.height > hlsObj.levels[best].height)) best = k; });
-          if (best >= 0) hlsObj.nextLevel = best;
+          if (best >= 0) { hlsObj.startLevel = best; hlsObj.currentLevel = best; } // no 250p/360p start
         });
         hlsObj.loadSource(url); hlsObj.attachMedia(e);
       };
