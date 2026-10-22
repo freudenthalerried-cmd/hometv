@@ -10,7 +10,7 @@ on:
         description: Videos pro Quelle
         default: '8'
   push:
-    paths: ['tools/source-test.js', 'app/src/main/assets/inject.js', '.github/workflows/source-test.yml']
+    paths: ['tools/source-test.js', 'app/src/main/assets/inject.js', 'app/src/main/assets/index.html', 'app/src/main/java/**', '.github/workflows/source-test.yml']
   schedule:
     - cron: '17 5 * * *'
 jobs:
