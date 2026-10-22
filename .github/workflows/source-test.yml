@@ -27,6 +27,7 @@ jobs:
         env:
           QUERIES: ${{ github.event.inputs.queries || 'couple,german,amateur' }}
           PER_SOURCE: ${{ github.event.inputs.per_source || '8' }}
+          DEBUG: '1'
         run: node tools/source-test.js
       - uses: actions/upload-artifact@v4
         if: always()

@@ -60,13 +60,13 @@ async function pageAndFile(v) {
 }
 async function play(browser, v, strict) {
   const ctx = await browser.newContext({userAgent: UA, viewport: {width: 1280, height: 720}});
-  let blockedAds = 0;
+  let blockedAds = 0; const blockedHosts = {};
   await ctx.route('**/*', route => {
     const u = route.request().url(); let h = '';
     try { h = new URL(u).hostname.toLowerCase(); } catch (e) { }
     if (MEDIA.test(u.toLowerCase()) || u.startsWith('data:') || u.startsWith('blob:')) return route.continue();
     const ok = strict ? ALLOWED.some(a => h === a || h.endsWith('.' + a)) : !AD_HOSTS.test(h);
-    if (!ok) { if (AD_HOSTS.test(h)) blockedAds++; return route.fulfill({status: 200, body: ''}); }
+    if (!ok) { if (AD_HOSTS.test(h)) blockedAds++; else blockedHosts[h] = (blockedHosts[h] || 0) + 1; return route.fulfill({status: 200, body: ''}); }
     return route.continue();
   });
   const p = await ctx.newPage();
@@ -78,18 +78,36 @@ async function play(browser, v, strict) {
       await p.waitForTimeout(1000);
       const info = await p.evaluate(() => { const e = document.getElementById('__own') || document.querySelector('video');
         return {s: window.__ak_info ? window.__ak_info().s : '', cur: e ? e.currentTime : 0, h: e ? e.videoHeight : 0, own: !!document.getElementById('__own'), err: e && e.error ? e.error.code : 0}; });
-      if (info.cur > 0.5) { res = {ok: true, sec: Math.round((Date.now() - t0) / 1000), height: info.h, own: info.own}; break; }
+      if (info.cur > 0.5) { res = {ok: true, sec: Math.round((Date.now() - t0) / 1000), height: info.h, own: info.own, url: String(await p.evaluate(() => window.__ak_url || '')).replace(/\?.*/, '').slice(-60)}; break; }
       if (info.s === 'error') { res = {ok: false, why: 'Fehler im Player (Code ' + info.err + ')'}; break; }
       res.why = 'startet nicht (' + (info.s || 'keine Seite') + ')';
     }
   } catch (e) { res = {ok: false, why: String(e.message || e).split('\n')[0].slice(0, 70)}; }
   res.ads = blockedAds;
+  if (!res.ok || process.env.DEBUG) res.blocked = Object.keys(blockedHosts).slice(0, 6).join(' ');
   await ctx.close();
   return res;
 }
 
+async function debug() {
+  for (const u of ['https://www.youporn.com/api/webmasters/search?search=couple', 'https://www.youporn.com/api/webmasters/search/?search=couple',
+    'https://www.youporn.com/api/webmasters/v2/search?search=couple', 'https://api.youporn.com/api/webmasters/search?search=couple']) {
+    const r = await get(u).catch(e => ({status: String(e.message)})); const t = r.text ? (await r.text()).slice(0, 160).replace(/\s+/g, ' ') : '';
+    console.log('DEBUG YP', r.status, u, t);
+  }
+  for (const k of ['rt', 'ph']) {
+    const r = await search(k, 'couple'); const v = r.list && r.list[0]; if (!v) continue;
+    const h = await (await get(v.embed)).text();
+    const hits = ['mediaDefinition', 'videoUrl', 'm3u8', '.mp4', 'get_media', 'playervars', 'flashvars', 'html5player', 'sources', 'video_url', 'mediaDefinitions']
+      .map(w => w + ':' + (h.split(w).length - 1));
+    console.log('DEBUG PAGE', k, v.embed, 'len', h.length, hits.join(' '));
+    for (const w of ['mediaDefinition', 'm3u8', '.mp4']) { const i = h.indexOf(w); if (i >= 0) console.log('DEBUG CTX', k, w, h.slice(Math.max(0, i - 200), i + 300).replace(/\s+/g, ' ')); }
+  }
+}
+
 (async () => {
   const geo = await get('https://ipinfo.io/json').then(r => r.json()).catch(() => ({}));
+  if (process.env.DEBUG) await debug();
   const browser = await chromium.launch({...(process.env.CHROME_PATH ? {executablePath: process.env.CHROME_PATH} : {channel: 'chrome'}), args: ['--autoplay-policy=no-user-gesture-required']});
   const rows = [], apiErr = {};
   for (const k of Object.keys(SOURCES)) {
