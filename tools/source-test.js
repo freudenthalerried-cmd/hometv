@@ -76,6 +76,24 @@ async function play(browser, v, strict) {
   const app = await appPage(browser);
   const names = await app.evaluate(() => Object.keys(SRC).map(k => [k, SRC[k].name]));
   const rows = [], apiErr = {};
+  if (process.env.DEBUG) { // which qualities: embed page vs. normal watch page, HLS levels
+    const quals = async u => {
+      const h = await (await get(u)).text(); const out = [];
+      const re = /"videoUrl"\s*:\s*"([^"]+)"(?:[^}]*?"quality"\s*:\s*"?(\d*))?/g; let m;
+      while ((m = re.exec(h))) {
+        let v = m[1].replace(/\\\//g, '/'); if (v[0] === '/') v = new URL(v, u).href;
+        if (/get_media|\/media\/(hls|mp4)/.test(v)) { try { const l = await (await get(v)).json(); (Array.isArray(l) ? l : []).forEach(x => out.push('liste:' + x.quality + (/m3u8/.test(x.videoUrl) ? 'hls' : 'mp4'))); } catch (e) { out.push('liste:fehler'); } }
+        else out.push((m[2] || '?') + (/m3u8/.test(v) ? 'hls' : 'mp4'));
+      }
+      const hl = /setVideoHLS\(\s*['"]([^'"]+)/.exec(h);
+      if (hl) { const t = await (await get(hl[1])).text().catch(() => ''); out.push('hls-stufen:' + (t.match(/RESOLUTION=\d+x(\d+)|hls-(\d+)p/g) || []).join(',')); }
+      return out.join(' ');
+    };
+    for (const [k, watch] of [['ph', id => 'https://www.pornhub.com/view_video.php?viewkey=' + id], ['rt', id => 'https://www.redtube.com/' + id], ['xn', null], ['xv', null]]) {
+      const l = await app.evaluate(k => SRC[k].get({query: 'german', order: 'top-rated'}).then(l => l.slice(0, 3).map(v => [v.id.split(':')[1], v.embed]), () => []), k);
+      for (const [id, embed] of l) console.log('DEBUG Q', k, id, 'einbettung:', await quals(embed).catch(e => 'fehler'), watch ? '| videoseite: ' + await quals(watch(id)).catch(e => 'fehler') : '');
+    }
+  }
   if (process.env.DEBUG) { // why XVideos finds nothing / where XNXX pages redirect to
     for (const u of ['https://www.xvideos.com/?k=couple&sort=rating&p=0', 'https://www.xvideos.com/?k=couple']) {
       const r = await get(u); const t = await r.text();
