@@ -374,7 +374,7 @@ function tube(pre, base, path, linkRe) {
   return function (o) {
     var q = o.query && o.query !== 'all' ? o.query : '';
     return http(base + path(q, o)).then(function (t) {
-      return t.split(/class="thumb-block/).slice(1).map(function (b) {
+      return t.split(/class="[^"]*\bthumb-block\b/).slice(1).map(function (b) { // XVideos puts other classes in front
         var l = linkRe.exec(b); if (!l) return null;
         var hd = /video-(?:hd|sd)-mark[^>]*>\s*(\d+)p/.exec(b); if (hd && +hd[1] < 720) return null; // list says below 720p
         var ti = /title="([^"]{3,200})"/.exec(b), im = /data-src="(https:[^"]+\.jpg)"/.exec(b) || /src="(https:[^"]+\.jpg)"/.exec(b);
