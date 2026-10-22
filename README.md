@@ -57,6 +57,9 @@ Sendung hinzufügen per Namen oder bei jedem Film ☰ → „Sendung abonnieren�
 Sendungen privater Sender kommen über die YouTube-Suche am Gerät – nur Videos vom offiziellen Kanal.
 **🎓 Lernen**: planet schule, alpha Lernen, Quarks, Lesch & Co, nano, Planet Wissen, Wissen macht Ah!, simpleclub, MrWissen2go, Kurzgesagt.
 
+## Interaktiver Film (Privat → 🎬 Film)
+Du entscheidest die Handlung (Berghütte, Erstes Date, Urlaub); zu jeder Entscheidung läuft eine passende, geprüfte Szene, danach geht die Geschichte weiter. Startet eine Szene nicht, wird sie automatisch ersetzt.
+
 ## Player
 Privat-Videos werden vorab geprüft (gelöscht, privat, gesperrt, Kopierschutz → ausgeblendet). Startet eines nicht, kommt nach max. ~20 s automatisch das nächste der Reihe. ☰ → „⚠ Geht nicht“ meldet ein Video; Einstellungen zeigen die Quellen-Statistik. Der Selbsttest (Einstellungen, täglich auch automatisch) prüft jede Kategorie bis zur Videodatei – direkt am Fire TV.
 Startet sofort; oben rechts steht immer, ob Pause, Lädt oder Springe. ◀ ▶ ▲ ▼ spulen mit kleinem Vorschaubild (bei normalen Videodateien),

@@ -129,6 +129,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 <script src="home.js"></script>
 <script src="news.js"></script>
 <script src="shows.js"></script>
+<script src="film.js"></script>
 <script src="rate.js"></script>
 <script>
 'use strict';
@@ -700,6 +701,7 @@ window.onPlayResult = function (id, ok, info) {
 };
 window.onPlayerClosed = function (id, sec) {
   playingNow = false;
+  if (filmClosed(id)) nextAfter = null; // interactive film: replaces a dead scene itself, then continues the story
   if (nextAfter) { var n = nextAfter; nextAfter = null; if (autoSkips++ < 4) { toast('Nicht abspielbar – nächstes Video …'); setTimeout(function () { play(n); }, 300); return; } }
   autoSkips = 0;
   var v = lastPlayed; if (!v || v.id !== id) return;
@@ -720,7 +722,7 @@ function go(v) {
   if (v === 'priv') v = 'home';
   if (v === 'rand') return randomPlay();
   document.body.classList.toggle('dashv', v === 'dash');
-  view = v; ({selftest:selfTest, dash:dash, news:news, fav:favs, learn:learnView, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
+  view = v; ({film:film, selftest:selfTest, dash:dash, news:news, fav:favs, learn:learnView, log:updLogView, yt:ytView, relax:relax, comedy:comedy, radio:radio, home:home, movies:filme, cats:cats, search:search, mine:mine, games:games, set:settings})[v]();
 }
 function randomPlay() {
   toast('Suche einen Film für dich …');
