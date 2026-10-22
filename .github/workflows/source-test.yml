@@ -1,0 +1,35 @@
+name: Quellen-Test
+# Tests the private video sources for real (API, page, video file, playback in Chrome with the app's player script).
+on:
+  workflow_dispatch:
+    inputs:
+      queries:
+        description: Suchbegriffe (Komma-getrennt)
+        default: couple,german,amateur
+      per_source:
+        description: Videos pro Quelle
+        default: '8'
+  push:
+    paths: ['tools/source-test.js', 'app/src/main/assets/inject.js', '.github/workflows/source-test.yml']
+  schedule:
+    - cron: '17 5 * * *'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm i --no-save playwright@1.48.2
+      - name: Test
+        env:
+          QUERIES: ${{ github.event.inputs.queries || 'couple,german,amateur' }}
+          PER_SOURCE: ${{ github.event.inputs.per_source || '8' }}
+        run: node tools/source-test.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-test
+          path: source-test.json
