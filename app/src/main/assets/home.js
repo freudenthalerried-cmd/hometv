@@ -100,16 +100,17 @@ function dash() {
   unlocked = false; camOk = false; // back home = everything locked again
   begin();
   tickClock(); loadWeather(); loadNews();
-  addRow('', [['★ Favoriten', function () { go('fav'); }], ['🎬 Filme', function () { go('movies'); }], ['📰 Nachrichten', function () { go('news'); }], ['🎓 Lernen', function () { go('learn'); }], ['😂 Comedy', function () { go('comedy'); }], ['📷 Kameras', function () { go('cams'); }],
-    ['🎵 Musik', function () { go('radio'); }], ['▶ YouTube', function () { go('yt'); }], ['🌿 Entspannung', function () { go('relax'); }], ['🎤 Suche', function () { voiceSearch(); }],
-    ['🔒 Privat', function () { go('priv'); }], ['⚙️ Einstellungen', function () { go('set'); }]], 'tile');
+  var T = function (label, k, fn) { return [label, fn || function () { go(k); }, tileOf(k)]; };
+  addRow('', [T('★ Favoriten', 'fav'), T('🎬 Filme', 'movies'), T('📰 Nachrichten', 'news'), T('🎓 Lernen', 'learn'), T('😂 Comedy', 'comedy'),
+    T('📷 Kameras', 'cams'), T('🎵 Musik', 'radio'), T('▶ YouTube', 'yt'), T('🌿 Entspannung', 'relax'), T('🎤 Suche', '', function () { voiceSearch(); }),
+    T('🔒 Privat', 'priv-none', function () { go('priv'); }), T('⚙️ Einstellungen', 'set-none', function () { go('set'); })], 'tile');
   newCount().then(function (n) { // how many new episodes of the favourite shows
     if (!n || view !== 'dash') return;
     var t = [].slice.call(document.querySelectorAll('.tile')).filter(function (e) { return e.textContent === '★ Favoriten'; })[0];
     if (t) t.textContent = '★ Favoriten · ' + n + ' neu';
   });
   var apps = myApps();
-  if (apps.length) addRow('Deine Apps', apps.map(function (a) { return ['▶ ' + a[0], function () { stopRadio(); A.launch(a[1]); }]; }), 'tile');
+  if (apps.length) addRow('Deine Apps', apps.map(function (a) { return [a[2] ? '' : '▶ ' + a[0], function () { stopRadio(); A.launch(a[1]); }, a[2]]; }), 'tile');
   finish();
   movies({mv:1, q:'spielfilm', f:TT, page:1}).then(function (list) {
     if (view === 'dash' && list.length) addRow('Neu in den Mediatheken', list, null, {mv:1, q:'spielfilm', f:TT, page:1});

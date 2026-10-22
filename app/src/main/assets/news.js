@@ -12,9 +12,12 @@ var NEWS_MV = [['ZIB – ORF', 'zib', 'tt', 600, 'orf'], ['Tagesschau', 'tagessc
 var NEWS_YT = [['tagesschau', 'UC5NOEUbkLheQcaaRldYW5GA'], ['ZDFheute Nachrichten', 'UCeqKIgPQfNInOswGRWt48kQ'],
   ['DW News (English, Untertitel)', 'UCknLrEdhRCp1aegoMqRaCZg', 'en'], ['BBC News (English, Untertitel)', 'UC16niRr50-MSBwiO3YDb3RA', 'en']];
 
+var LIVE_PAGE = [[/orf/, 'https://tv.orf.at/'], [/stv-live|servus/, 'https://www.servustv.com/'], [/tagesschau/, 'https://www.tagesschau.de/'],
+  [/dw/, 'https://www.dw.com/en/']];
 function liveItem(r) {
   var u = r[1] + (r[2] === 'en' ? '#subs' : ''); // the player switches subtitles on for '#subs'
   return {id:'live:' + r[0], src:'live', channel:'LIVE', title:r[0], topic:'Live-TV', desc:r[2] === 'en' ? 'Englisch, mit Untertiteln (falls der Sender welche mitschickt)' : '',
+    page:LIVE_PAGE.filter(function (x) { return x[0].test(r[1]); }).map(function (x) { return x[1]; })[0] || '', // its logo/picture
     urls:[u], embed:u, length_sec:0, keywords:'', views:0, rate:0, default_thumb:{src:''}, thumbs:[]};
 }
 function news() {

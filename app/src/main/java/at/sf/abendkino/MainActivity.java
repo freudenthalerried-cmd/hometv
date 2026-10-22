@@ -496,10 +496,33 @@ public class MainActivity extends Activity {
                 Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
                 for (android.content.pm.ResolveInfo r : pm.queryIntentActivities(i, 0)) {
                     String p = r.activityInfo.packageName;
-                    if (!p.equals(getPackageName())) out.put(new JSONArray().put(String.valueOf(r.loadLabel(pm))).put(p));
+                    if (!p.equals(getPackageName())) out.put(new JSONArray().put(String.valueOf(r.loadLabel(pm))).put(p).put(banner(pm, r)));
                 }
             } catch (Exception ignored) { }
             return out.toString();
+        }
+
+        /** The app's TV banner (or icon) as a small PNG data URL for the tiles; "" if there is none. */
+        private String banner(android.content.pm.PackageManager pm, android.content.pm.ResolveInfo r) {
+            try {
+                android.graphics.drawable.Drawable d = r.activityInfo.loadBanner(pm);
+                if (d == null) d = pm.getApplicationBanner(r.activityInfo.packageName);
+                if (d == null) d = r.loadIcon(pm);
+                if (d == null) return "";
+                android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(320, 180, android.graphics.Bitmap.Config.ARGB_8888);
+                android.graphics.Canvas c = new android.graphics.Canvas(b);
+                int w = d.getIntrinsicWidth(), h = d.getIntrinsicHeight();
+                if (w <= 0 || h <= 0) { w = 320; h = 180; }
+                float s = Math.min(320f / w, 180f / h); // fit, centred
+                int dw = Math.round(w * s), dh = Math.round(h * s);
+                d.setBounds((320 - dw) / 2, (180 - dh) / 2, (320 + dw) / 2, (180 + dh) / 2);
+                d.draw(c);
+                ByteArrayOutputStream o = new ByteArrayOutputStream();
+                b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, o);
+                return "data:image/png;base64," + android.util.Base64.encodeToString(o.toByteArray(), android.util.Base64.NO_WRAP);
+            } catch (Exception e) {
+                return "";
+            }
         }
 
         @JavascriptInterface

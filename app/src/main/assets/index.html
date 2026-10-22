@@ -95,6 +95,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b0b10;color:#eee;f
 #ddots i{width:1.1vh;height:1.1vh;border-radius:50%;background:#555}
 #ddots i.on{background:#e50914}
 .cat.tile{background:linear-gradient(135deg,#232338,#3a1424)}
+.cat.img{align-items:flex-end;padding-bottom:1.2vh;text-shadow:0 .2vh .8vh #000}
+.cat .ic{position:absolute;inset:0;background:center/contain no-repeat}
 #np{position:fixed;right:3vw;bottom:3vh;background:#1b1b24;padding:1vh 1.6vw;border-radius:1vh;font-size:2.75vh;display:none;z-index:8}
 #gate{position:fixed;top:0;left:0;right:0;bottom:0;z-index:28;background:#0b0b10f2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2.5vh}
 #gate .box{width:42vw;padding:4vh 3vw;border-radius:2vh;background:#1b1b24;text-align:center}
@@ -336,8 +338,8 @@ function addRow(title, list, kind, spec) {
   if (!list || !list.length) return;
   var r = document.createElement('div'); r.className = 'row';
   var html = list.map(function (x) {
-    if (kind === 'cat') return '<div class="cat f">' + esc(x[0]) + '</div>';
-    if (kind === 'tile') return '<div class="cat f tile">' + esc(x[0]) + '</div>';
+    var img = kind === 'cat' ? catImg[x[1]] && catImg[x[1]][0] : x[2]; // picture behind category / tile
+    if (kind === 'cat' || kind === 'tile') return '<div class="cat f' + (kind === 'tile' ? ' tile' : '') + (img ? ' img" style="' + tileBg(img) : '') + '">' + esc(x[0]) + '</div>';
     if (kind === 'btn') return '<div class="btn f">' + esc(x[0]) + '</div>';
     return cardHTML(x);
   }).join('');
@@ -352,7 +354,12 @@ function addRow(title, list, kind, spec) {
     else bindCard(e, x);
   });
   var seen = {};
-  if (!kind) { list.forEach(function (v) { seen[v.id] = 1; }); wantThumbs(list.slice(0, 6)); }
+  if (!kind) {
+    list.forEach(function (v) { seen[v.id] = 1; });
+    wantThumbs(list.slice(0, 10));
+    list.some(function (v) { return v.default_thumb && v.default_thumb.src && noteTile(v.default_thumb.src); });
+  }
+  if (kind === 'cat') wantCatImgs(items, list);
   lines.push({el:r, strip:r.querySelector('.strip'), items:items, i:0, more:moreFn(spec), page:1, seen:seen});
 }
 function begin() {
@@ -414,7 +421,7 @@ function focus() {
       ln.strip.style.transform = 'translateX(' + (-Math.min(off, max)) + 'px)';
     }
   }
-  if (e._v && e._v.src === 'mv') wantThumbs(ln.items.slice(ln.i, ln.i + 7).map(function (x) { return x._v; }));
+  if (e._v && (e._v.src === 'mv' || e._v.src === 'live')) wantThumbs(ln.items.slice(ln.i, ln.i + 10).map(function (x) { return x._v; }));
   clearTimeout(focus.dwell);
   if (e._v && !e._v._dwelt) focus.dwell = setTimeout(function (v) {
     v._dwelt = true;
@@ -588,33 +595,64 @@ var MV_ROWS = [
   ['Dokumentarfilme', {q:'dokumentarfilm', f:TTD, min:3600}], ['Dokumentationen', {q:'dokumentation', f:TT, min:2700}]
 ];
 var thumbCache = load('thumbs', {}), thumbQ = [], thumbBusy = 0, thumbSaveT = 0;
+function topicKey(v) { return 't:' + String(v.topic || '').toLowerCase(); }
 function wantThumbs(list) {
   list.forEach(function (v) {
-    if (!v || v.src !== 'mv' || !v.page || v.default_thumb.src || v._tq) return;
-    if (thumbCache[v.id]) { v.default_thumb.src = thumbCache[v.id]; paintThumb(v); return; }
+    if (!v || (v.src !== 'mv' && v.src !== 'live') || v.default_thumb.src || v._tq) return;
+    var known = thumbCache[v.id] || (!v.page && v.topic && thumbCache[topicKey(v)]); // no page: picture of the same show
+    if (known) { v.default_thumb.src = known; paintThumb(v); return; }
+    if (!v.page) return;
     v._tq = true; thumbQ.push(v);
   });
   pumpThumbs();
 }
+function ogImage(h) {
+  var m = /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*content=["']([^"']+)["']/i.exec(h) ||
+          /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image|twitter:image)["']/i.exec(h);
+  var u = m ? m[1].replace(/&amp;/g, '&').replace(/^\/\//, 'https://') : '';
+  return /^https:\/\//.test(u) ? u : '';
+}
 function pumpThumbs() {
-  while (thumbBusy < 3 && thumbQ.length) (function (v) {
+  while (thumbBusy < 5 && thumbQ.length) (function (v) {
     thumbBusy++;
     http(v.page).then(function (h) {
-      var m = /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i.exec(h) ||
-              /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i.exec(h);
-      var u = m ? m[1].replace(/&amp;/g, '&') : '';
-      if (!/^https:\/\//.test(u)) return;
+      var u = ogImage(h);
+      if (!u) return;
       v.default_thumb.src = thumbCache[v.id] = u;
-      var k = Object.keys(thumbCache); if (k.length > 2000) delete thumbCache[k[0]];
+      if (v.topic && v.src === 'mv') thumbCache[topicKey(v)] = u;
+      var k = Object.keys(thumbCache); if (k.length > 3000) delete thumbCache[k[0]];
       clearTimeout(thumbSaveT); thumbSaveT = setTimeout(function () { save('thumbs', thumbCache); }, 3000);
       paintThumb(v);
     }).catch(function () { }).then(function () { thumbBusy--; pumpThumbs(); });
   })(thumbQ.shift());
 }
+/* pictures for the tiles: each section remembers a current picture from its own rows; categories show a top video */
+var tileImg = load('tileImg', {}), catImg = load('catImg', {});
+function tileBg(u) { return 'background:linear-gradient(0deg,rgba(0,0,0,.85),rgba(0,0,0,.1) 75%),url(&quot;' + esc(u) + '&quot;) center/cover'; }
+function noteTile(u) {
+  var t = tileImg[view];
+  if (!/^https:\/\//.test(u) || (t && Date.now() - t[1] < 6 * 3600e3)) return false;
+  tileImg[view] = [u, Date.now()]; save('tileImg', tileImg);
+  return true;
+}
+function tileOf(k) { return tileImg[k] && tileImg[k][0]; }
+function wantCatImgs(items, list) {
+  var q = list.map(function (c, i) { return [c, items[i]]; }).filter(function (x) { var c = catImg[x[0][1]]; return !c || Date.now() - c[1] > 7 * 864e5; });
+  (function next() {
+    var x = q.shift(); if (!x) return;
+    api({query:x[0][1], order:'top-rated'}).then(function (l) {
+      var v = l.filter(function (v) { return v.default_thumb && v.default_thumb.src; })[0];
+      if (!v) return;
+      catImg[x[0][1]] = [v.default_thumb.src, Date.now()]; save('catImg', catImg);
+      x[1].className += ' img'; x[1].setAttribute('style', tileBg(v.default_thumb.src).replace(/&quot;/g, '"'));
+    }).catch(function () { }).then(next);
+  })();
+}
 function thumbBg(v) {
   return 'linear-gradient(0deg,rgba(0,0,0,.9) 0%,rgba(0,0,0,.15) 70%),url("' + v.default_thumb.src + '") center/cover';
 }
 function paintThumb(v) {
+  noteTile(v.default_thumb.src);
   [].slice.call(document.querySelectorAll('.card.mv')).forEach(function (e) { if (e._v && e._v.id === v.id) e.style.background = thumbBg(v); });
   var ln = lines[L], cur = ln && ln.items[ln.i];
   if (cur && cur._v && cur._v.id === v.id) hero(v);
@@ -636,7 +674,7 @@ function mvItem(r) {
   // servers that work here first, known-bad ones last
   urls = urls.filter(function (u) { return !patBad(u); }).concat(urls.filter(patBad));
   var url = urls[0] || '';
-  return {id:'mv:' + (r.id || url), src:'mv', hd:!!r.url_video_hd, page:/^https:\/\//.test(r.url_website || '') ? r.url_website : '', urls:urls.slice(0, 6), channel:r.channel, title:r.title, topic:r.topic, desc:r.description || '',
+  return {id:'mv:' + (r.id || url), src:'mv', hd:!!r.url_video_hd, page:/^https?:\/\//.test(r.url_website || '') ? r.url_website.replace(/^http:/, 'https:') : '', urls:urls.slice(0, 6), channel:r.channel, title:r.title, topic:r.topic, desc:r.description || '',
     date:r.timestamp, length_sec:+r.duration || 0, embed:url, keywords:'', views:0, rate:0, default_thumb:{src:''}, thumbs:[]};
 }
 var MV_BAD = /(gebärdensprache|\(dgs\)|\(ögs\)|audiodeskription|hörfassung|\(ad\)|originalfassung|originalversion|\bomu\b|\(ov\)|englische fassung|english version|version originale|trailer|teaser|vorschau|making[- ]of|klarer sprache|leichter sprache)/i;
