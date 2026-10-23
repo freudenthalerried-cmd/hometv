@@ -29,7 +29,7 @@ async function appPage(browser) {
   await p.exposeFunction('__nodeGet', async u => { try { const r = await get(u); return [r.status === 200, await r.text()]; } catch (e) { return [false, String(e.message)]; } });
   await p.exposeFunction('__nodeCheck', async l => Promise.all(JSON.parse(l).map(reachable)));
   await p.addInitScript(() => {
-    const st = {};
+    const st = {onlyVerified: 'false'};
     window.Android = {version: () => 999, load: k => st[k] || '', save: (k, v) => { st[k] = v; }, keyboard() {}, exit() {}, apps: () => '[]',
       get: (u, cb) => window.__nodeGet(u).then(r => window.__cb(cb, r[0], r[1])),
       post: (u, b, cb) => window.__cb(cb, false, ''),
@@ -69,11 +69,80 @@ async function play(browser, v, strict) {
   return res;
 }
 
+/* PUBLISH: candidates from every category (CATS of the app), each played for real; only what ran in 720p+ goes into
+   verified.json, which the app shows in "Nur geprüfte Videos" mode. */
+async function publish(browser, app) {
+  const PER_QUERY = +process.env.PER_QUERY || 3, MAX = +process.env.MAX_VIDEOS || 120;
+  const queries = ['all'].concat(await app.evaluate(() => CATS.map(c => c[1])));
+  const pool = new Map();
+  for (const q of queries) {
+    const l = await app.evaluate(q => api({query: q, order: 'top-rated'}).then(l => l.slice(0, 15).map(v => ({id: v.id, src: v.src, title: v.title, sec: v.length_sec,
+      embed: v.embed, thumb: v.default_thumb.src, kw: String(v.keywords || '').split(', ').slice(0, 8).join(', ')}))), q).catch(() => []);
+    let added = 0;
+    for (const v of l) {
+      if (pool.has(v.id)) { pool.get(v.id).cats.push(q); continue; }
+      if (added < PER_QUERY && pool.size < MAX) { pool.set(v.id, {...v, cats: q === 'all' ? [] : [q]}); added++; }
+    }
+  }
+  const ok = [], stats = {};
+  for (const v of pool.values()) {
+    const s = stats[v.src] = stats[v.src] || {n: 0, ok: 0};
+    s.n++;
+    const pre = await app.evaluate(v => adultProbe(v).catch(e => 'Fehler'), v);
+    let pl = {ok: false};
+    if (!/bad|lowq|nofile/.test(pre)) { pl = await play(browser, v, true); if (!pl.ok) pl = await play(browser, v, false); }
+    if (pl.ok && pl.height >= 700) { s.ok++; ok.push({...v, h: pl.height}); }
+    console.log('PUBLISH', v.src, v.id, pre, pl.ok ? pl.height + 'p' : pl.why);
+  }
+  const out = {t: Date.now(), n: ok.length, stats, v: ok};
+  fs.writeFileSync('verified.json', JSON.stringify(out));
+  let md = `## Geprüft-Liste: ${ok.length} von ${pool.size} Videos laufen in 720p+\n\n| Quelle | läuft | getestet |\n|---|---|---|\n`;
+  Object.keys(stats).forEach(k => { md += `| ${k} | ${stats[k].ok} | ${stats[k].n} |\n`; });
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+  console.log(md);
+}
+
+/* PROBE: new source candidates - does the search answer, does a video page carry a file, does it really play
+   (app player, normal ad blocking)? Only candidates that play get built into the app. */
+const CANDIDATES = [
+  ['Eporner (Videoseite)', 'https://www.eporner.com/api/v2/video/search/?query=couple&per_page=5&thumbsize=big&order=top-weekly&format=json', /"url":"(https:[^"]+)"/, m => m.replace(/\\\//g, '/')],
+  ['xHamster', 'https://xhamster.com/search/couple', /href="(https:\/\/xhamster\.com\/videos\/[^"]+)"/, m => m],
+  ['PornTrex', 'https://www.porntrex.com/search/couple/', /href="(https:\/\/www\.porntrex\.com\/video\/[^"]+)"/, m => m],
+  ['Tnaflix', 'https://www.tnaflix.com/search?what=couple', /href="(\/[a-z0-9-]+\/[^"]*video\d+)"/, m => 'https://www.tnaflix.com' + m],
+  ['YouJizz', 'https://www.youjizz.com/search/couple-1.html', /href="(\/videos\/[^"]+\.html)"/, m => 'https://www.youjizz.com' + m],
+  ['Porn.com', 'https://www.porn.com/videos/search?q=couple', /href="(\/videos\/[a-z0-9-]+-\d+)"/, m => 'https://www.porn.com' + m],
+  ['SunPorno', 'https://www.sunporno.com/search/couple/', /href="(https:\/\/www\.sunporno\.com\/videos\/\d+\/?)"/, m => m],
+  ['Txxx', 'https://txxx.com/search/?s=couple', /href="(\/videos\/\d+\/[^"]+)"/, m => 'https://txxx.com' + m],
+  ['HClips', 'https://hclips.com/search/?s=couple', /href="(\/videos\/\d+\/[^"]+)"/, m => 'https://hclips.com' + m],
+  ['Upornia', 'https://upornia.com/search/?q=couple', /href="(\/videos\/\d+\/[^"]+)"/, m => 'https://upornia.com' + m]
+];
+async function probe(browser) {
+  let md = '## Neue Quellen-Kandidaten\n\n| Seite | Suche | Video-Seite | Abspielen |\n|---|---|---|---|\n';
+  for (const [name, url, re, toVideo] of CANDIDATES) {
+    let row = [name, '', '', ''];
+    try {
+      const r = await get(url); const t = await r.text(); const m = re.exec(t);
+      row[1] = r.status + (t.includes('Just a moment') ? ' Cloudflare' : '') + (m ? ' ✓' : ' keine Treffer');
+      if (m) {
+        const vu = toVideo(m[1]); const r2 = await get(vu);
+        row[2] = r2.status + ' ' + vu.slice(0, 60);
+        const pl = await play(browser, {embed: vu}, false);
+        row[3] = pl.ok ? `✅ ${pl.height}p nach ${pl.sec}s${pl.own ? ', eigener Player' : ', Seiten-Player'}` : '❌ ' + pl.why;
+      }
+    } catch (e) { row[3] = 'Fehler ' + String(e.message || e).slice(0, 60); }
+    console.log('PROBE', row.join(' | '));
+    md += '| ' + row.join(' | ') + ' |\n';
+  }
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+}
+
 (async () => {
   const geo = await get('https://ipinfo.io/json').then(r => r.json()).catch(() => ({}));
   const browser = await chromium.launch({...(process.env.CHROME_PATH ? {executablePath: process.env.CHROME_PATH} : {channel: 'chrome'}),
     args: ['--autoplay-policy=no-user-gesture-required', '--allow-file-access-from-files']});
   const app = await appPage(browser);
+  if (process.env.PUBLISH) { await publish(browser, app); await browser.close(); return; }
+  if (process.env.PROBE) { await probe(browser); await browser.close(); return; }
   const names = await app.evaluate(() => Object.keys(SRC).map(k => [k, SRC[k].name]));
   const rows = [], apiErr = {};
   if (process.env.DEBUG) { // which qualities: embed page vs. normal watch page, HLS levels

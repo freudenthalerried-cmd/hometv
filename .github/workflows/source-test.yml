@@ -9,6 +9,9 @@ on:
       per_source:
         description: Videos pro Quelle
         default: '8'
+      probe:
+        description: Nur neue Quellen-Kandidaten prüfen (1 = ja)
+        default: ''
   push:
     paths: ['tools/source-test.js', 'app/src/main/assets/inject.js', 'app/src/main/assets/index.html', 'app/src/main/java/**', '.github/workflows/source-test.yml']
   schedule:
@@ -28,6 +31,7 @@ jobs:
           QUERIES: ${{ github.event.inputs.queries || 'couple,german,amateur' }}
           PER_SOURCE: ${{ github.event.inputs.per_source || '8' }}
           DEBUG: ''
+          PROBE: ${{ github.event.inputs.probe || '' }}
         run: node tools/source-test.js
       - uses: actions/upload-artifact@v4
         if: always()

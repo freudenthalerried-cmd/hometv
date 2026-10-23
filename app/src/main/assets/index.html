@@ -392,7 +392,33 @@ var FOREIGN = /[\u0400-\u04FF\u0600-\u06FF\u0E00-\u0E7F\u3040-\u30FF\u4E00-\u9FF
 var srcOn = load('sources', {});
 function activeSrc() { return Object.keys(SRC).filter(function (k) { return srcOn[k] !== false; }); }
 
+/* Geprüft-Liste: the test on GitHub plays every candidate for real every day and publishes only the videos that ran
+   (720p+) as verified.json. With "Nur geprüfte Videos" (default) the private area offers only those. */
+var verified = load('verified', null), onlyVerified = load('onlyVerified', true);
+function loadVerified() {
+  http(UPD + 'verified.json').then(function (t) {
+    var j = JSON.parse(t);
+    if (j && Array.isArray(j.v) && j.v.length && (!verified || j.t !== verified.t)) { verified = j; save('verified', j); save('cache_home', null); }
+  }).catch(function () { });
+}
+function vItem(x) {
+  return {id:x.id, src:x.src, title:x.title, keywords:(x.cats || []).join(', ') + (x.kw ? ', ' + x.kw : ''), views:0, rate:'0',
+    length_sec:x.sec, embed:x.embed, default_thumb:{src:x.thumb || ''}, thumbs:[], hd:x.h, ok:1};
+}
+function verifiedApi(o) {
+  var q = String(o.query || 'all').toLowerCase(), words = q.split(/\s+/).filter(function (w) { return w.length > 2; });
+  var l = verified.v.filter(function (x) {
+    if (q === 'all') return true;
+    if ((x.cats || []).indexOf(q) >= 0) return true;
+    var t = (x.title + ' ' + (x.kw || '') + ' ' + (x.cats || []).join(' ')).toLowerCase();
+    return words.length && words.every(function (w) { return t.indexOf(w) >= 0; });
+  }).map(vItem).filter(okVid);
+  if (o.order === 'latest') l.reverse();
+  var p = o.page || 1;
+  return Promise.resolve(l.slice((p - 1) * 30, p * 30));
+}
 function api(o) {
+  if (onlyVerified && verified && verified.v && verified.v.length) return verifiedApi(o);
   return Promise.all(activeSrc().map(function (k) { return SRC[k].get(o).catch(function () { return []; }); }))
     .then(function (lists) {
       // interleave so every row mixes all sources
@@ -1220,6 +1246,9 @@ function settings() {
     ['📋 Update-Protokoll', function () { go('log'); }]], 'btn');
   wxLocRow();
   if (unlocked) {
+  addRow('Privat-Videos' + (verified ? ' · Geprüft-Liste: ' + verified.v.length + ' Videos vom ' + new Date(verified.t).toLocaleDateString('de-AT') : ''), [
+    [(onlyVerified ? '● ' : '○ ') + 'Nur geprüfte Videos (100 % getestet)', function () { onlyVerified = true; save('onlyVerified', true); save('cache_home', null); settings(); }],
+    [(!onlyVerified ? '● ' : '○ ') + 'Alle Videos (mehr Auswahl, ungeprüft)', function () { onlyVerified = false; save('onlyVerified', false); save('cache_home', null); settings(); }]], 'btn');
   addRow('Werbeblocker', [[(strict ? '● Streng (empfohlen)' : '○ Streng'), function () { A.save('strict', '1'); toast('Werbeblocker: streng'); settings(); }],
     [(!strict ? '● Normal (falls Videos nicht starten)' : '○ Normal (falls Videos nicht starten)'), function () { A.save('strict', '0'); toast('Werbeblocker: normal'); settings(); }]], 'btn');
   addRow('Quellen (mehr Quellen = mehr Filme)', Object.keys(SRC).map(function (k) {
@@ -1263,11 +1292,12 @@ var sleepMin = 0;
 Games.init();
 applyContent(load('content', null));
 loadContent();
+loadVerified();
 if (load('disc', false)) document.body.classList.add('disc');
 go('dash');
 if (load('pin', []).length === 4) showLock(false);
 setTimeout(function () { checkUpdate(false); }, 4000);
-setInterval(function () { loadContent(); checkUpdate(false); }, 6 * 3600e3); // the app often stays open for days
+setInterval(function () { loadContent(); loadVerified(); checkUpdate(false); }, 6 * 3600e3); // the app often stays open for days
 </script>
 </body>
 </html>

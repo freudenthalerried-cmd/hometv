@@ -57,6 +57,9 @@ Sendung hinzufügen per Namen oder bei jedem Film ☰ → „Sendung abonnieren�
 Sendungen privater Sender kommen über die YouTube-Suche am Gerät – nur Videos vom offiziellen Kanal.
 **🎓 Lernen**: planet schule, alpha Lernen, Quarks, Lesch & Co, nano, Planet Wissen, Wissen macht Ah!, simpleclub, MrWissen2go, Kurzgesagt.
 
+## Geprüft-Liste (Privat)
+GitHub spielt täglich jedes Kandidaten-Video wirklich ab (App-Code, App-Player, Werbeblocker) und veröffentlicht nur Videos, die in 720p+ liefen (verified.json). Standard in der App: „Nur geprüfte Videos“ (Einstellungen).
+
 ## Interaktiver Film (Privat → 🎬 Film)
 Du entscheidest die Handlung (Berghütte, Erstes Date, Urlaub); zu jeder Entscheidung läuft eine passende, geprüfte Szene, danach geht die Geschichte weiter. Startet eine Szene nicht, wird sie automatisch ersetzt.
 

@@ -1,0 +1,35 @@
+name: Geprüft-Liste
+# Plays every candidate video for real (app code, app player, app ad blocking) and publishes only the ones that ran in
+# 720p+ as verified.json next to the APK. The app shows only these in "Nur geprüfte Videos" mode.
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/source-test.js', 'app/src/main/assets/inject.js', 'app/src/main/assets/index.html', '.github/workflows/verified.yml']
+  schedule:
+    - cron: '23 3 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: verified
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm i --no-save playwright@1.48.2
+      - name: Test all candidates
+        env:
+          PUBLISH: '1'
+        run: node tools/source-test.js
+      - name: Publish (only if enough videos passed)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(python3 -c 'import json; print(json.load(open("verified.json"))["n"])')
+          echo "verified: $n"
+          if [ "$n" -ge 15 ]; then gh release upload firetv verified.json --clobber; else echo "zu wenige – alte Liste bleibt"; fi
