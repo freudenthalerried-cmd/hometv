@@ -99,7 +99,9 @@ async function publish(browser, app) {
         let hs = '';
         if (hl) { const r2 = await get(hl[1]); hs = r2.status + ' ' + (await r2.text()).slice(0, 60).replace(/\s+/g, ' '); }
         console.log('DIAG', v.src, 'seite', r.status, r.url.slice(0, 70), 'len', h.length, 'hls', hl ? hl[1].slice(0, 60) : '-', hs,
-          /captcha|cf-chl|Just a moment|verify you are human/i.test(h) ? 'SPERRE/CAPTCHA' : '');
+          /captcha|cf-chl|Just a moment|verify you are human/i.test(h) ? 'SPERRE/CAPTCHA' : '',
+          /age.?verif|verify your age|not available in your (state|region|country)|blocked in your/i.test(h) ? 'ALTERSPRÜFUNG/REGION' : '',
+          (h.match(/html5player\.[a-zA-Z]+/g) || []).slice(0, 6).join(','));
       } catch (e) { console.log('DIAG', v.src, 'Fehler', String(e.message).slice(0, 80)); }
     }
   }
@@ -117,7 +119,8 @@ async function publish(browser, app) {
   } catch (e) { console.log('letzte Liste nicht lesbar', e.message); }
   const out = {t: Date.now(), n: ok.length, stats, v: ok};
   fs.writeFileSync('verified.json', JSON.stringify(out));
-  let md = `## Geprüft-Liste: ${ok.length} von ${pool.size} Videos laufen in 720p+\n\n| Quelle | läuft | getestet |\n|---|---|---|\n`;
+  const where = await get('https://ipinfo.io/json').then(r => r.json()).catch(() => ({}));
+  let md = `## Geprüft-Liste: ${ok.length} von ${pool.size} Videos laufen in 720p+ (Testserver: ${where.city || '?'}, ${where.region || '?'})\n\n| Quelle | läuft | getestet |\n|---|---|---|\n`;
   Object.keys(stats).forEach(k => { md += `| ${k} | ${stats[k].ok}${stats[k].kept ? ' (+' + stats[k].kept + ' behalten)' : ''} | ${stats[k].n} |\n`; });
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
   console.log(md);
