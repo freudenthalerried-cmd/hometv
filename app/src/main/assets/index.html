@@ -700,10 +700,10 @@ window.onPlayResult = function (id, ok, info) {
   srcSum(src, ok);
   if (!ok) { nextAfter = nextInRow(id); dropCard(id); }
   // a source that keeps failing on this device is switched off automatically
-  var st = (srcStats[src] = (srcStats[src] || []).concat([ok ? 1 : 0]).slice(-6));
+  // switched off only when nothing of it has played lately (single dead videos are skipped anyway)
+  var st = (srcStats[src] = (srcStats[src] || []).concat([ok ? 1 : 0]).slice(-8));
   save('srcStats', srcStats);
-  var fails = st.filter(function (x) { return !x; }).length;
-  if (st.length >= 4 && fails >= 4 && activeSrc().length > 1) {
+  if (st.length >= 8 && st.indexOf(1) < 0 && activeSrc().length > 1) {
     srcOn[src] = false; save('sources', srcOn); save('cache_home', null);
     toast(SRC[src].name + ' automatisch abgeschaltet – Videos liefen nicht');
   }
@@ -1193,10 +1193,16 @@ window.onUpdate = function (st) {
   if (m) logUpd(m);
   toast(m || 'Update lädt … ' + st);
 };
+var RESET_AT = 127; // raise when the adult checks change so much that old "does not work" marks are wrong
 // a new version is running: note it in the log once
 (function () {
   var v = curVer(), last = load('lastVer', 0);
   if (v && v !== last) {
+    // new version: every source on again, fresh rows; lists made with older (worse) logic are thrown away once
+    srcOn = {}; srcStats = {}; save('sources', srcOn); save('srcStats', srcStats); save('cache_home', null);
+    if (load('resetAt', 0) < RESET_AT) {
+      P.bad = {}; adultOk = {}; save('profile', P); save('adultOk', adultOk); save('resetAt', RESET_AT);
+    }
     var n = load('updNotes', [0, '']);
     if (last) logUpd('Installiert: v' + v + (n[0] === v && n[1] ? ' – ' + n[1] : ''));
     save('lastVer', v);
