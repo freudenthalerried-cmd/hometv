@@ -93,11 +93,32 @@ async function publish(browser, app) {
     if (!/bad|lowq|nofile/.test(pre)) { pl = await play(browser, v, true); if (!pl.ok) pl = await play(browser, v, false); }
     if (pl.ok && pl.height >= 700) { s.ok++; ok.push({...v, h: pl.height}); }
     console.log('PUBLISH', v.src, v.id, pre, pl.ok ? pl.height + 'p' : pl.why);
+    if (!pl.ok && (s.diag = (s.diag || 0) + 1) <= 2) { // why: page, file list, HLS answer as seen from here
+      try {
+        const r = await get(v.embed), h = await r.text(), hl = /setVideoHLS\(\s*['"]([^'"]+)/.exec(h);
+        let hs = '';
+        if (hl) { const r2 = await get(hl[1]); hs = r2.status + ' ' + (await r2.text()).slice(0, 60).replace(/\s+/g, ' '); }
+        console.log('DIAG', v.src, 'seite', r.status, r.url.slice(0, 70), 'len', h.length, 'hls', hl ? hl[1].slice(0, 60) : '-', hs,
+          /captcha|cf-chl|Just a moment|verify you are human/i.test(h) ? 'SPERRE/CAPTCHA' : '');
+      } catch (e) { console.log('DIAG', v.src, 'Fehler', String(e.message).slice(0, 80)); }
+    }
   }
+  /* a source where nothing at all ran here is most likely blocking this test server, not broken on the Fire TV:
+     its videos from the last list (at most 3 days old) stay in */
+  try {
+    const prev = await (await get('https://github.com/freudenthalerried-cmd/hometv/releases/download/firetv/verified.json')).json();
+    if (prev && prev.v && Date.now() - prev.t < 3 * 864e5) {
+      Object.keys(stats).filter(k => stats[k].n >= 5 && stats[k].ok === 0).forEach(k => {
+        const keep = prev.v.filter(x => x.src === k && !ok.some(y => y.id === x.id));
+        stats[k].kept = keep.length; ok.push(...keep);
+        console.log('BEHALTEN', k, keep.length, 'aus der letzten Liste (Quelle hier komplett gesperrt?)');
+      });
+    }
+  } catch (e) { console.log('letzte Liste nicht lesbar', e.message); }
   const out = {t: Date.now(), n: ok.length, stats, v: ok};
   fs.writeFileSync('verified.json', JSON.stringify(out));
   let md = `## Geprüft-Liste: ${ok.length} von ${pool.size} Videos laufen in 720p+\n\n| Quelle | läuft | getestet |\n|---|---|---|\n`;
-  Object.keys(stats).forEach(k => { md += `| ${k} | ${stats[k].ok} | ${stats[k].n} |\n`; });
+  Object.keys(stats).forEach(k => { md += `| ${k} | ${stats[k].ok}${stats[k].kept ? ' (+' + stats[k].kept + ' behalten)' : ''} | ${stats[k].n} |\n`; });
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
   console.log(md);
 }
