@@ -362,7 +362,7 @@ function webmaster(base, pre, thumbsize, embed) {
 var SRC = {
   // the normal video pages, not the embeds: only they offer 720p / 1080p
   ph:{name:'Pornhub', get:webmaster('https://www.pornhub.com/webmasters/search?', 'ph', 'large_hd', 'https://www.pornhub.com/view_video.php?viewkey=')},
-  rt:{name:'RedTube', get:webmaster('https://api.redtube.com/?data=redtube.Videos.searchVideos&output=json&', 'rt', 'big', 'https://www.redtube.com/')},
+  rt:{name:'RedTube', off:true, get:webmaster('https://api.redtube.com/?data=redtube.Videos.searchVideos&output=json&', 'rt', 'big', 'https://www.redtube.com/')},
   xv:{name:'XVideos', get:tube('xv', 'https://www.xvideos.com', function (q, o) {
     return q ? '/?k=' + encodeURIComponent(q) + (o.page > 1 ? '&p=' + (o.page - 1) : '')
       : (o.page > 1 ? '/new/' + (o.page - 1) : '/'); }, /href="(\/video\.?([a-z0-9]+)\/[^"]+)"/)},
@@ -390,7 +390,9 @@ function tube(pre, base, path, linkRe) {
 function unent(t) { var d = document.createElement('textarea'); d.innerHTML = t; return d.value; } // &uacute; → ú
 var FOREIGN = /[\u0400-\u04FF\u0600-\u06FF\u0E00-\u0E7F\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/; // Cyrillic, Arabic, Thai, Japanese, Chinese, Korean titles
 var srcOn = load('sources', {});
-function activeSrc() { return Object.keys(SRC).filter(function (k) { return srcOn[k] !== false; }); }
+// a source marked off:true (does not work on the Fire TV) stays off unless switched on in the settings
+function srcIsOn(k) { return srcOn[k] === undefined ? !SRC[k].off : srcOn[k] !== false; }
+function activeSrc() { return Object.keys(SRC).filter(srcIsOn); }
 
 /* Geprüft-Liste: the test on GitHub plays every candidate for real every day and publishes only the videos that ran
    (720p+) as verified.json. With "Nur geprüfte Videos" (default) the private area offers only those. */
@@ -412,7 +414,7 @@ function verifiedApi(o) {
     if ((x.cats || []).indexOf(q) >= 0) return true;
     var t = (x.title + ' ' + (x.kw || '') + ' ' + (x.cats || []).join(' ')).toLowerCase();
     return words.length && words.every(function (w) { return t.indexOf(w) >= 0; });
-  }).map(vItem).filter(okVid);
+  }).filter(function (x) { return srcIsOn(x.src); }).map(vItem).filter(okVid);
   if (o.order === 'latest') l.reverse();
   var p = o.page || 1;
   return Promise.resolve(l.slice((p - 1) * 30, p * 30));
@@ -727,10 +729,10 @@ window.onPlayResult = function (id, ok, info) {
   if (!ok) { nextAfter = nextInRow(id); dropCard(id); }
   // a source that keeps failing on this device is switched off automatically
   // switched off only when nothing of it has played lately (single dead videos are skipped anyway)
-  var st = (srcStats[src] = (srcStats[src] || []).concat([ok ? 1 : 0]).slice(-8));
+  var st = (srcStats[src] = (srcStats[src] || []).concat([ok ? 1 : 0]).slice(-5));
   save('srcStats', srcStats);
-  if (st.length >= 8 && st.indexOf(1) < 0 && activeSrc().length > 1) {
-    srcOn[src] = false; save('sources', srcOn); save('cache_home', null);
+  if (st.length >= 5 && st.filter(function (x) { return !x; }).length >= 4 && activeSrc().length > 1) {
+    srcOn[src] = false; save('sources', srcOn); save('cache_home', null); // learned on this device
     toast(SRC[src].name + ' automatisch abgeschaltet – Videos liefen nicht');
   }
 };
@@ -1246,14 +1248,14 @@ function settings() {
     ['📋 Update-Protokoll', function () { go('log'); }]], 'btn');
   wxLocRow();
   if (unlocked) {
-  addRow('Privat-Videos' + (verified ? ' · Geprüft-Liste: ' + verified.v.length + ' Videos vom ' + new Date(verified.t).toLocaleDateString('de-AT') : ''), [
+  addRow('Privat-Videos' + (verified ? ' · Geprüft-Liste: ' + verified.v.filter(function (x) { return srcIsOn(x.src); }).length + ' Videos vom ' + new Date(verified.t).toLocaleDateString('de-AT') : ''), [
     [(onlyVerified ? '● ' : '○ ') + 'Nur geprüfte Videos (100 % getestet)', function () { onlyVerified = true; save('onlyVerified', true); save('cache_home', null); settings(); }],
     [(!onlyVerified ? '● ' : '○ ') + 'Alle Videos (mehr Auswahl, ungeprüft)', function () { onlyVerified = false; save('onlyVerified', false); save('cache_home', null); settings(); }]], 'btn');
   addRow('Werbeblocker', [[(strict ? '● Streng (empfohlen)' : '○ Streng'), function () { A.save('strict', '1'); toast('Werbeblocker: streng'); settings(); }],
     [(!strict ? '● Normal (falls Videos nicht starten)' : '○ Normal (falls Videos nicht starten)'), function () { A.save('strict', '0'); toast('Werbeblocker: normal'); settings(); }]], 'btn');
   addRow('Quellen (mehr Quellen = mehr Filme)', Object.keys(SRC).map(function (k) {
-    return [(srcOn[k] !== false ? '● ' : '○ ') + SRC[k].name, function () {
-      srcOn[k] = srcOn[k] === false;
+    return [(srcIsOn(k) ? '● ' : '○ ') + SRC[k].name, function () {
+      srcOn[k] = !srcIsOn(k);
       if (!activeSrc().length) srcOn[k] = true;
       save('sources', srcOn); save('cache_home', null); settings();
     }];
