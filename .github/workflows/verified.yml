@@ -6,7 +6,7 @@ on:
   push:
     paths: ['tools/source-test.js', 'app/src/main/assets/inject.js', 'app/src/main/assets/index.html', '.github/workflows/verified.yml']
   schedule:
-    - cron: '23 3 * * *'
+    - cron: '23 3 * * 1'  # every Monday ~5:23 in Austria
 permissions:
   contents: write
 concurrency:

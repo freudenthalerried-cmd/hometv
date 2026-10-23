@@ -75,13 +75,20 @@ async function publish(browser, app) {
   const PER_QUERY = +process.env.PER_QUERY || 3, MAX = +process.env.MAX_VIDEOS || 120;
   const queries = ['all'].concat(await app.evaluate(() => CATS.map(c => c[1])));
   const pool = new Map();
+  // 1) everything that is on the list now is played again (does it still work?)
+  let prevList = null;
+  try { prevList = await (await get('https://github.com/freudenthalerried-cmd/hometv/releases/download/firetv/verified.json')).json(); } catch (e) { }
+  const activeNow = await app.evaluate(() => activeSrc());
+  ((prevList && prevList.v) || []).filter(x => activeNow.includes(x.src)).forEach(x => { if (!pool.has(x.id)) pool.set(x.id, {...x, cats: x.cats || [], old: 1}); });
+  const oldCount = pool.size;
+  // 2) new candidates from every category (are there new films?)
   for (const q of queries) {
     const l = await app.evaluate(q => api({query: q, order: 'top-rated'}).then(l => l.slice(0, 15).map(v => ({id: v.id, src: v.src, title: v.title, sec: v.length_sec,
       embed: v.embed, thumb: v.default_thumb.src, kw: String(v.keywords || '').split(', ').slice(0, 8).join(', ')}))), q).catch(() => []);
     let added = 0;
     for (const v of l) {
       if (pool.has(v.id)) { pool.get(v.id).cats.push(q); continue; }
-      if (added < PER_QUERY && pool.size < MAX) { pool.set(v.id, {...v, cats: q === 'all' ? [] : [q]}); added++; }
+      if (added < PER_QUERY && pool.size < MAX + oldCount) { pool.set(v.id, {...v, cats: q === 'all' ? [] : [q]}); added++; }
     }
   }
   const ok = [], stats = {};
@@ -91,7 +98,8 @@ async function publish(browser, app) {
     const pre = await app.evaluate(v => adultProbe(v).catch(e => 'Fehler'), v);
     let pl = {ok: false};
     if (!/bad|lowq|nofile/.test(pre)) { pl = await play(browser, v, true); if (!pl.ok) pl = await play(browser, v, false); }
-    if (pl.ok && pl.height >= 700) { s.ok++; ok.push({...v, h: pl.height}); }
+    if (pl.ok && pl.height >= 700) { s.ok++; const {old, ...keep} = v; ok.push({...keep, h: pl.height}); if (!old) s.neu = (s.neu || 0) + 1; }
+    else if (v.old) s.weg = (s.weg || 0) + 1;
     console.log('PUBLISH', v.src, v.id, pre, pl.ok ? pl.height + 'p' : pl.why);
     if (!pl.ok && (s.diag = (s.diag || 0) + 1) <= 2) { // why: page, file list, HLS answer as seen from here
       try {
@@ -109,7 +117,7 @@ async function publish(browser, app) {
      its videos from the last list (at most 3 days old) stay in */
   try {
     const prev = await (await get('https://github.com/freudenthalerried-cmd/hometv/releases/download/firetv/verified.json')).json();
-    if (prev && prev.v && Date.now() - prev.t < 3 * 864e5) {
+    if (prev && prev.v && Date.now() - prev.t < 10 * 864e5) { // weekly runs: keep up to 10 days
       Object.keys(stats).filter(k => stats[k].n >= 5 && stats[k].ok === 0).forEach(k => {
         const keep = prev.v.filter(x => x.src === k && !ok.some(y => y.id === x.id));
         stats[k].kept = keep.length; ok.push(...keep);
@@ -120,8 +128,8 @@ async function publish(browser, app) {
   const out = {t: Date.now(), n: ok.length, stats, v: ok};
   fs.writeFileSync('verified.json', JSON.stringify(out));
   const where = await get('https://ipinfo.io/json').then(r => r.json()).catch(() => ({}));
-  let md = `## Geprüft-Liste: ${ok.length} von ${pool.size} Videos laufen in 720p+ (Testserver: ${where.city || '?'}, ${where.region || '?'})\n\n| Quelle | läuft | getestet |\n|---|---|---|\n`;
-  Object.keys(stats).forEach(k => { md += `| ${k} | ${stats[k].ok}${stats[k].kept ? ' (+' + stats[k].kept + ' behalten)' : ''} | ${stats[k].n} |\n`; });
+  let md = `## Geprüft-Liste: ${ok.length} von ${pool.size} Videos laufen in 720p+ (davon ${oldCount} von der alten Liste nachgeprüft) (Testserver: ${where.city || '?'}, ${where.region || '?'})\n\n| Quelle | läuft | neu dazu | nicht mehr da | getestet |\n|---|---|---|---|---|\n`;
+  Object.keys(stats).forEach(k => { md += `| ${k} | ${stats[k].ok}${stats[k].kept ? ' (+' + stats[k].kept + ' behalten)' : ''} | ${stats[k].neu || 0} | ${stats[k].weg || 0} | ${stats[k].n} |\n`; });
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
   console.log(md);
 }
