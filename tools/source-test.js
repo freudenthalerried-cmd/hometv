@@ -212,6 +212,7 @@ async function publicCheck(browser, app) {
       test = out.join(', ');
     }
     const hd = l.filter(v => v.hd).length;
+    if (/zib|servus|orf|österreich/i.test(name)) test += ' 🇦🇹 geschützt (Wunsch des Besitzers, nur in AT prüfbar – nie entfernen)';
     md += `| ${kind} | ${name} | ${l.length} | ${l.length && !l[0].yt ? hd + '/' + l.length : ''} | ${test} |\n`;
     console.log('PUBLIC', kind, name, l.length, test);
   }
