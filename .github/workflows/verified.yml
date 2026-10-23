@@ -33,3 +33,9 @@ jobs:
           n=$(python3 -c 'import json; print(json.load(open("verified.json"))["n"])')
           echo "verified: $n"
           if [ "$n" -ge 15 ]; then gh release upload firetv verified.json --clobber; else echo "zu wenige – alte Liste bleibt"; fi
+      - name: New source candidates (information only)
+        if: always()
+        continue-on-error: true
+        env:
+          PROBE: '1'
+        run: node tools/source-test.js
