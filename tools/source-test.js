@@ -27,12 +27,13 @@ async function reachable(u) {
 async function appPage(browser) {
   const p = await browser.newPage();
   await p.exposeFunction('__nodeGet', async u => { try { const r = await get(u); return [r.status === 200, await r.text()]; } catch (e) { return [false, String(e.message)]; } });
+  await p.exposeFunction('__nodePost', async (u, body) => { try { const r = await fetch(u, {method: 'POST', body, headers: {'User-Agent': UA, 'Content-Type': 'text/plain'}, signal: AbortSignal.timeout(15000)}); return [r.status === 200, await r.text()]; } catch (e) { return [false, String(e.message)]; } });
   await p.exposeFunction('__nodeCheck', async l => Promise.all(JSON.parse(l).map(reachable)));
   await p.addInitScript(() => {
     const st = {onlyVerified: 'false'};
     window.Android = {version: () => 999, load: k => st[k] || '', save: (k, v) => { st[k] = v; }, keyboard() {}, exit() {}, apps: () => '[]',
       get: (u, cb) => window.__nodeGet(u).then(r => window.__cb(cb, r[0], r[1])),
-      post: (u, b, cb) => window.__cb(cb, false, ''),
+      post: (u, b, cb) => window.__nodePost(u, b).then(r => window.__cb(cb, r[0], r[1])),
       check: (l, cb) => window.__nodeCheck(l).then(r => window.__cb(cb, true, JSON.stringify(r)))};
   });
   await p.goto('file://' + path.join(ASSETS, 'index.html'));
@@ -168,6 +169,55 @@ async function probe(browser) {
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
 }
 
+/* PUBLIC: the rest of the app (films, docs, comedy, news, learning, relax, YouTube, live TV). Every row is loaded with
+   the app's own code; its first films are played like the Fire TV does (own <video>, hls.js) and their picture size noted. */
+async function playFile(browser, url) {
+  const ctx = await browser.newContext({userAgent: UA});
+  const p = await ctx.newPage(); const t0 = Date.now(); let res = {ok: false, why: 'startet nicht'};
+  try {
+    await p.setContent('<video id=v autoplay muted playsinline></video><script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>');
+    await p.evaluate(u => { const v = document.getElementById('v');
+      if (/\.m3u8/.test(u) && window.Hls && Hls.isSupported()) { const h = new Hls(); h.loadSource(u); h.attachMedia(v); } else v.src = u; v.play().catch(() => {}); }, url);
+    for (let i = 0; i < 15; i++) {
+      await p.waitForTimeout(1000);
+      const r = await p.evaluate(() => { const v = document.getElementById('v'); return {cur: v.currentTime, h: v.videoHeight, err: v.error && v.error.code}; });
+      if (r.cur > 0.5) { res = {ok: true, sec: Math.round((Date.now() - t0) / 1000), height: r.h}; break; }
+      if (r.err) { res = {ok: false, why: 'Fehler ' + r.err}; break; }
+    }
+  } catch (e) { res = {ok: false, why: String(e.message).slice(0, 60)}; }
+  await ctx.close();
+  return res;
+}
+async function publicCheck(browser, app) {
+  const rows = await app.evaluate(() => {
+    const mv = (list, kind) => list.map(r => [kind, r[0], {q: r[1], f: r[2] === 'ttd' ? TTD : TT, min: r[3], ch: r[4]}]);
+    return [].concat(MV_ROWS.map(r => ['Filme/Dokus', r[0], r[1]]), mv(COMEDY_MV, 'Comedy'), mv(NEWS_MV, 'Nachrichten'), mv(LEARN_MV, 'Lernen'),
+      mv(RELAX, 'Entspannung'), YT_TUBE.map(c => ['YouTube', c[0], {yt: c[1]}]), NEWS_YT.map(c => ['YouTube-News', c[0], {yt: c[1]}]),
+      LEARN_YT.map(c => ['YouTube-Lernen', c[0], {yts: c[1], own: c[2]}]), [['Live-TV', 'Live-Sender', {live: 1}]]);
+  });
+  let md = '## Restliches Programm (Filme, Dokus, Nachrichten, YouTube, Live)\n\n| Bereich | Reihe | gefunden | HD | Test-Abspielen |\n|---|---|---|---|---|\n';
+  for (const [kind, name, spec] of rows) {
+    const l = await app.evaluate(sp => (sp.yt ? ytFeed('x', sp.yt) : sp.yts ? ytSearch(sp.yts, sp.own, 180, false) : sp.live ? playable(NEWS_LIVE.map(liveItem), true)
+      : movies(Object.assign({mv: 1, page: 1}, sp))).then(l => l.map(v => ({title: v.title, hd: !!v.hd, urls: v.urls || [], yt: v.src === 'yt', src: v.src}))).catch(() => []), spec);
+    let test = '';
+    if (!l.length) test = '⚠️ leer';
+    else if (l[0].yt) test = 'YouTube (am Gerät geprüft)';
+    else {
+      const out = [];
+      for (const v of l.slice(0, kind === 'Live-TV' ? 4 : 2)) {
+        const u = String(v.urls[0] || '').replace(/#subs$/, '');
+        const r = await playFile(browser, u);
+        out.push(r.ok ? `✅ ${r.height}p` : '❌ ' + r.why + (/orf|apa|servus|stv-live/.test(u) ? ' (evtl. nur in AT)' : ''));
+      }
+      test = out.join(', ');
+    }
+    const hd = l.filter(v => v.hd).length;
+    md += `| ${kind} | ${name} | ${l.length} | ${l.length && !l[0].yt ? hd + '/' + l.length : ''} | ${test} |\n`;
+    console.log('PUBLIC', kind, name, l.length, test);
+  }
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+}
+
 (async () => {
   const geo = await get('https://ipinfo.io/json').then(r => r.json()).catch(() => ({}));
   const browser = await chromium.launch({...(process.env.CHROME_PATH ? {executablePath: process.env.CHROME_PATH} : {channel: 'chrome'}),
@@ -175,6 +225,7 @@ async function probe(browser) {
   const app = await appPage(browser);
   if (process.env.PUBLISH) { await publish(browser, app); await browser.close(); return; }
   if (process.env.PROBE) { await probe(browser); await browser.close(); return; }
+  if (process.env.PUBLIC) { await publicCheck(browser, app); await browser.close(); return; }
   const names = await app.evaluate(() => Object.keys(SRC).map(k => [k, SRC[k].name]));
   const rows = [], apiErr = {};
   if (process.env.DEBUG) { // which qualities: embed page vs. normal watch page, HLS levels

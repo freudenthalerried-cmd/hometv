@@ -904,6 +904,7 @@ function movies(o) {
       // news and shows: every day has the same title, so only the same broadcast (same hour) counts as a duplicate
       var seen = {}, short = o.min && o.min < 2400;
       l = short ? l.filter(function (v) { var k = v.title + '|' + Math.round(v.date / 3600); return seen[k] ? false : (seen[k] = 1); }) : uniq(l);
+      if (!short) l = l.filter(function (v) { return v.hd; }); // films, docs, shows: only HD copies (news may be SD)
       return l.sort(function (a, b) { return (b.date || 0) - (a.date || 0); });
     })
     .then(playable)
